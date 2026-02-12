@@ -69,4 +69,3 @@ show_status() {
     echo "  Model:    $model"
     echo ""
 }
-EOF

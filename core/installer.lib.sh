@@ -36,11 +36,11 @@ ensure_local_bin() {
     fi
 }
 
-# Create symlink from ~/.mukits/tool/bin/command to ~/.local/bin/command
+# Create symlink from ~/.mukits/tools/tool/bin/command to ~/.local/bin/command
 install_command() {
     local tool_name="$1"
     local command_name="$2"
-    local source_dir="$HOME/.mukits/$tool_name/bin"
+    local source_dir="$HOME/.mukits/tools/$tool_name/bin"
 
     local local_bin="$HOME/.local/bin"
     local target="$local_bin/$command_name"

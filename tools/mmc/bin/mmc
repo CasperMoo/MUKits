@@ -3,8 +3,9 @@
 
 set -euo pipefail
 
-# Get script directory
-MMC_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)"
+# Get script directory (resolving symlinks)
+MMC_SCRIPT="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || realpath "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")"
+MMC_LIB_DIR="$(cd "$(dirname "$MMC_SCRIPT")/../lib" && pwd)"
 
 # Source libraries
 source "$MMC_LIB_DIR/provider.sh"

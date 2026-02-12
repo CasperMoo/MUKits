@@ -19,24 +19,57 @@ emit_env_exports() {
     # Source provider config to get values
     source "$(dirname "${BASH_SOURCE[0]}")/provider.sh"
 
-    # Get provider config
-    declare -A provider
-    get_provider_config "$provider_name" provider
+    # Get provider config (using set -k to avoid unbound variable errors)
+    set +u
+    local base_url model auth_token sonnet opus haiku subagent
+    case "$provider_name" in
+        "deepseek"|"ds")
+            base_url="https://api.deepseek.com/anthropic"
+            model="deepseek-chat"
+            sonnet="deepseek/deepseek-v3.2"
+            opus="deepseek/deepseek-v3.2"
+            haiku="deepseek/deepseek-v3.2"
+            subagent="deepseek-chat"
+            ;;
+        "glm")
+            base_url="https://open.bigmodel.cn/api/paas/v4/"
+            model="glm-4"
+            sonnet="glm-4"
+            opus="glm-4"
+            haiku="glm-4"
+            subagent="glm-4"
+            ;;
+        "anthropic")
+            base_url="https://api.anthropic.com"
+            model="claude-sonnet-4-20250514"
+            sonnet="claude-sonnet-4-20250514"
+            opus="claude-opus-4-20250514"
+            haiku="claude-haiku-4-20250514"
+            subagent="claude-sonnet-4-20250514"
+            ;;
+        *)
+            echo "Unknown provider: $provider_name" >&2
+            return 1
+            ;;
+    esac
+    set -u
+
+    # Get auth token from environment or config
+    set +u  # Temporarily disable for env var check
+    local env_var
+    env_var="$(get_provider_env_var "$provider_name")"
+    if [[ -n "$env_var" && -n "${!env_var:-}" ]]; then
+        auth_token="${!env_var}"
+    else
+        auth_token=""
+    fi
+    set -u
 
     # First unset old variables
     printf "unset ANTHROPIC_BASE_URL ANTHROPIC_AUTH_TOKEN "
     printf "ANTHROPIC_MODEL ANTHROPIC_DEFAULT_SONNET_MODEL "
     printf "ANTHROPIC_DEFAULT_OPUS_MODEL ANTHROPIC_DEFAULT_HAIKU_MODEL "
     printf "CLAUDE_CODE_SUBAGENT_MODEL\n"
-
-    # Get values (env vars take priority over config)
-    local base_url="${provider[base_url]}"
-    local auth_token="${provider[auth_token]}"
-    local model="${provider[model]}"
-    local sonnet="${provider[sonnet]}"
-    local opus="${provider[opus]}"
-    local haiku="${provider[haiku]}"
-    local subagent="${provider[subagent]}"
 
     # Export each variable
     echo "export ANTHROPIC_BASE_URL='$base_url'"

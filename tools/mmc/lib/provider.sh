@@ -4,12 +4,20 @@
 set -euo pipefail
 
 # Provider environment variable mappings
-declare -grA PROVIDER_ENV_MAP=(
-    ["deepseek"]="DEEPSEEK_API_KEY"
-    ["ds"]="DEEPSEEK_API_KEY"
-    ["glm"]="GLM_API_KEY"
-    ["anthropic"]="ANTHROPIC_API_KEY"
-)
+# Note: Using plain arrays for bash 3.2 compatibility on macOS
+PROVIDER_ENV_DEEPSEEK="DEEPSEEK_API_KEY"
+PROVIDER_ENV_GLM="GLM_API_KEY"
+PROVIDER_ENV_ANTHROPIC="ANTHROPIC_API_KEY"
+
+get_provider_env_var() {
+    local provider="$1"
+    case "$provider" in
+        "deepseek"|"ds") echo "$PROVIDER_ENV_DEEPSEEK" ;;
+        "glm") echo "$PROVIDER_ENV_GLM" ;;
+        "anthropic") echo "$PROVIDER_ENV_ANTHROPIC" ;;
+        *) echo "" ;;
+    esac
+}
 
 # Built-in provider configurations
 # Usage: get_provider_config <provider_name> <output_assoc_array>
@@ -49,8 +57,9 @@ get_provider_config() {
     esac
 
     # Get auth token from environment or config
-    local env_var="${PROVIDER_ENV_MAP[$provider_name]:-}"
-    if [[ -n "${!env_var:-}" ]]; then
+    local env_var
+    env_var="$(get_provider_env_var "$provider_name")"
+    if [[ -n "$env_var" && -n "${!env_var:-}" ]]; then
         output_array[auth_token]="${!env_var}"
     else
         output_array[auth_token]=""

@@ -62,8 +62,9 @@ get_toml_value() {
     in_section && $1 == field {
         # Extract value after =
         sub(/^[^=]*=\s*/, "")
-        # Remove quotes
-        gsub(/^['"]|['"]$/, "")
+        # Remove surrounding quotes (both single and double)
+        gsub(/^["'"'"']/, "")
+        gsub(/["'"'"']$/, "")
         print
         exit
     }
@@ -114,7 +115,8 @@ ensure_auth_token() {
     # Source provider definitions
     source "$(dirname "${BASH_SOURCE[0]}")/provider.sh"
 
-    local env_var="${PROVIDER_ENV_MAP[$provider]:-}"
+    local env_var
+    env_var="$(get_provider_env_var "$provider")"
 
     # Check environment variable
     if [[ -n "${!env_var:-}" ]]; then

@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+# mmc - Mukits Claude Code provider manager
+
+set -euo pipefail
+
+# Get script directory
+MMC_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)"
+
+# Source libraries
+source "$MMC_LIB_DIR/provider.sh"
+source "$MMC_LIB_DIR/core.sh"
+source "$MMC_LIB_DIR/config.sh"
+
+# Initialize config
+init_config
+
+# Show usage
+show_usage() {
+    cat << 'USAGE'
+Usage: mmc [COMMAND] [OPTIONS]
+
+Commands:
+  <provider>     Switch to provider and launch Claude Code
+  ls             List available providers
+  status         Show current configuration
+  config edit    Edit configuration file
+
+Providers:
+  deepseek (ds)  DeepSeek API
+  glm            GLM (智谱清言) API
+  anthropic      Anthropic official API
+
+Examples:
+  mmc deepseek           Switch to DeepSeek and launch claude
+  mmc ds -y "help"       Switch and pass args to claude
+  mmc ls                 List providers
+  mmc status             Show current config
+
+Environment Variables:
+  DEEPSEEK_API_KEY       DeepSeek API key
+  GLM_API_KEY            GLM API key
+  ANTHROPIC_API_KEY      Anthropic API key
+USAGE
+}
+
+# Interactive provider selection
+interactive_select() {
+    local providers
+    mapfile -t providers < <(get_all_provider_names)
+
+    if command -v fzf &>/dev/null; then
+        printf '%s\n' "${providers[@]}" | fzf --prompt="选择提供商 > " --height=40%
+    else
+        echo "Available providers:"
+        local i=1
+        for p in "${providers[@]}"; do
+            echo "  $i) $p"
+            ((i++))
+        done
+        echo ""
+        read -p "Select [1-${#providers[@]}]: " selection
+        echo "${providers[$((selection-1))]}"
+    fi
+}
+
+# Main command handler
+main() {
+    local command="${1:-}"
+
+    case "$command" in
+        ""|"help"|"-h"|"--help")
+            show_usage
+            ;;
+
+        "ls"|"list")
+            list_providers
+            ;;
+
+        "status")
+            show_status
+            ;;
+
+        "config")
+            local subcmd="${2:-}"
+            case "$subcmd" in
+                "edit")
+                    local editor="${EDITOR:-vi}"
+                    "$editor" "$MMC_CONFIG_FILE"
+                    ;;
+                *)
+                    echo "Usage: mmc config edit"
+                    exit 1
+                    ;;
+            esac
+            ;;
+
+        *)
+            # Treat as provider name
+            local provider="$command"
+            local provider_args=("${@:2}")
+
+            # Resolve alias
+            case "$provider" in
+                "ds") provider="deepseek" ;;
+            esac
+
+            # Verify provider exists
+            if ! get_all_provider_names | grep -q "$provider"; then
+                echo "Unknown provider: $provider" >&2
+                echo "" >&2
+                list_providers
+                exit 1
+            fi
+
+            # Ensure auth token
+            local auth_token
+            auth_token="$(ensure_auth_token "$provider")"
+            if [[ -z "$auth_token" ]]; then
+                echo "Error: No API key configured for $provider" >&2
+                exit 1
+            fi
+
+            # Emit exports and launch claude
+            echo "Switching to provider: $provider"
+            echo ""
+
+            # Source the exports in current shell, then exec
+            eval "$(emit_env_exports "$provider")"
+
+            # Launch claude with remaining args
+            exec claude "${provider_args[@]}"
+            ;;
+    esac
+}
+
+main "$@"

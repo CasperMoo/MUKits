@@ -1,0 +1,28 @@
+# mukits-cli configuration
+
+[mmc]
+default_provider = "deepseek"
+interactive_fallback = true
+
+# Provider configurations
+# auth_token can be left empty to use environment variables
+
+[providers.deepseek]
+name = "deepseek"
+base_url = "https://api.deepseek.com/anthropic"
+auth_token = ""  # Uses $DEEPSEEK_API_KEY if empty
+model = "deepseek-chat"
+sonnet = "deepseek/deepseek-v3.2"
+opus = "deepseek/deepseek-v3.2"
+haiku = "deepseek/deepseek-v3.2"
+subagent = "deepseek-chat"
+
+[providers.glm]
+name = "glm"
+base_url = "https://open.bigmodel.cn/api/paas/v4/"
+auth_token = ""  # Uses $GLM_API_KEY if empty
+model = "glm-4"
+sonnet = "glm-4"
+opus = "glm-4"
+haiku = "glm-4"
+subagent = "glm-4"

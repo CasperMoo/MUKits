@@ -47,7 +47,7 @@ USAGE
 # Interactive provider selection
 interactive_select() {
     local providers
-    mapfile -t providers < <(get_all_provider_names)
+    providers=($(get_all_provider_names))
 
     if command -v fzf &>/dev/null; then
         printf '%s\n' "${providers[@]}" | fzf --prompt="选择提供商 > " --height=40%

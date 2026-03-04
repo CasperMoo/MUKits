@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
 # mukits-cli installer
-# Usage: curl -sL https://xxx/install.sh | bash
+# Usage: curl -sL https://raw.githubusercontent.com/OWNER/mukits/main/install.sh | bash
 
 set -euo pipefail
 
 # Configuration
-REPO_URL="${REPO_URL:-https://github.com/xxx/mukits.git}"
+REPO_URL="${REPO_URL:-https://github.com/OWNER/mukits.git}"
 INSTALL_DIR="$HOME/.mukits"
-
-# Detect installed tools or install all
 TOOLS_TO_INSTALL="${MUKITS_TOOLS:-mmc}"
 
 # Colors
@@ -21,6 +19,41 @@ NC='\033[0m'
 log_info() { echo -e "${GREEN}[INFO]${NC} $*"; }
 log_warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
+log_step() { echo -e "${BLUE}==>${NC} $*"; }
+
+# Check if claude code is installed
+check_claude_code() {
+    if command -v claude &>/dev/null; then
+        local version
+        version=$(claude --version 2>/dev/null || echo "unknown")
+        log_info "Claude Code already installed: $version"
+        return 0
+    fi
+    return 1
+}
+
+# Install Claude Code
+install_claude_code() {
+    log_step "Installing Claude Code..."
+
+    # Check npm
+    if ! command -v npm &>/dev/null; then
+        log_error "npm not found. Please install Node.js first:"
+        echo "  macOS: brew install node"
+        echo "  Linux: curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt install nodejs"
+        exit 1
+    fi
+
+    # Install claude code globally
+    npm install -g @anthropic-ai/claude-code
+
+    if command -v claude &>/dev/null; then
+        log_info "Claude Code installed successfully!"
+    else
+        log_error "Failed to install Claude Code"
+        exit 1
+    fi
+}
 
 # Clone or update repository
 clone_or_update() {
@@ -59,14 +92,13 @@ install_tool() {
 
     log_info "Installing tool: $tool"
 
-    # Run tool-specific install hook
     if [[ -f "$tool_install" ]]; then
         bash "$tool_install"
     else
-        # Default: install all commands in bin/
         for cmd in "$tool_dir/bin"/*; do
             [[ -f "$cmd" ]] || continue
-            local cmd_name="$(basename "$cmd")"
+            local cmd_name
+            cmd_name="$(basename "$cmd")"
             install_command "$tool" "$cmd_name"
         done
     fi
@@ -74,19 +106,30 @@ install_tool() {
 
 # Main installation
 main() {
-    log_info "mukits-cli installer"
+    echo ""
+    echo -e "${BLUE}╔══════════════════════════════════════╗${NC}"
+    echo -e "${BLUE}║     mukits-cli Installer             ║${NC}"
+    echo -e "${BLUE}╚══════════════════════════════════════╝${NC}"
     echo ""
 
-    # Clone/update repository
+    # Step 1: Check/Install Claude Code
+    log_step "Checking Claude Code..."
+    if ! check_claude_code; then
+        install_claude_code
+    fi
+    echo ""
+
+    # Step 2: Clone/update repository
+    log_step "Installing mukits..."
     clone_or_update
 
-    # Source shared library
+    # Step 3: Source shared library
     source_installer_lib
 
-    # Ensure ~/.local/bin
+    # Step 4: Ensure ~/.local/bin
     ensure_local_bin
 
-    # Install tools
+    # Step 5: Install tools
     for tool in $TOOLS_TO_INSTALL; do
         install_tool "$tool"
     done
@@ -95,11 +138,18 @@ main() {
     log_info "Installation complete!"
     echo ""
     echo "Installed commands:"
-    for tool in $TOOLS_TO_INSTALL; do
-        echo "  - $tool"
-    done
+    echo "  - mmc (Claude Code profile manager)"
     echo ""
-    log_warn "Make sure ~/.local/bin is in your PATH"
+    echo "Quick start:"
+    echo "  mmc ls       # List available profiles"
+    echo "  mmc glm      # Launch with glm profile"
+    echo "  mmc config   # Edit configuration"
+    echo ""
+
+    if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+        log_warn "~/.local/bin not in PATH. Add to your shell config:"
+        echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
+    fi
 }
 
 main "$@"

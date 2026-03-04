@@ -5,12 +5,21 @@
 ## 安装
 
 ```bash
-curl -sL https://raw.githubusercontent.com/xxx/mukits/main/install.sh | bash
+curl -sL https://raw.githubusercontent.com/OWNER/mukits/main/install.sh | bash
 ```
+
+> 将 `OWNER` 替换为你的 GitHub 用户名
+
+安装脚本会自动：
+1. 检查并安装 Claude Code（如果未安装）
+2. 安装/更新 mukits 工具集
+
+**依赖：** Node.js（用于安装 Claude Code）
 
 确保 `~/.local/bin` 在你的 PATH 中：
 
 ```bash
+# 添加到 ~/.zshrc 或 ~/.bashrc
 export PATH="$HOME/.local/bin:$PATH"
 ```
 

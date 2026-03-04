@@ -9,8 +9,6 @@ source "$(dirname "${BASH_SOURCE[0]}")/../../core/installer.lib.sh"
 # Install mmc command
 install_command "mmc" "mmc"
 
-# Initialize config
-bash -c 'source "$HOME/.mukits/tools/mmc/lib/config.sh" && init_config'
-
 echo "  mmc installed!"
-echo "  Run 'mmc' to get started"
+echo "  Run 'mmc help' to get started"
+echo "  Config file: ~/.mukits/config.json"

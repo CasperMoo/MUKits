@@ -1,110 +1,290 @@
 #!/usr/bin/env bash
-# mmc - Mukits Claude Code provider manager
+# mmc - Claude Code provider/profile manager
+# Usage: mmc <profile> [-- <claude args>]
 
 set -euo pipefail
 
-# Get script directory (resolving symlinks)
-MMC_SCRIPT="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || realpath "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")"
-MMC_LIB_DIR="$(cd "$(dirname "$MMC_SCRIPT")/../lib" && pwd)"
+# Config paths
+MMC_CONFIG_DIR="${MMC_CONFIG_DIR:-$HOME/.mukits}"
+MMC_CONFIG_FILE="$MMC_CONFIG_DIR/config.json"
 
-# Source libraries
-source "$MMC_LIB_DIR/provider.sh"
-source "$MMC_LIB_DIR/core.sh"
-source "$MMC_LIB_DIR/config.sh"
+# Default config template
+DEFAULT_CONFIG='{
+  "providers": {
+    "deepseek": {
+      "base_url": "https://api.deepseek.com/anthropic",
+      "api_key_env": "DEEPSEEK_API_KEY",
+      "models": ["deepseek-chat", "deepseek-v3"]
+    },
+    "glm": {
+      "base_url": "https://open.bigmodel.cn/api/paas/v4/",
+      "api_key_env": "GLM_API_KEY",
+      "models": ["glm-4", "glm-4.5-air", "glm-4.7"]
+    },
+    "anthropic": {
+      "base_url": "https://api.anthropic.com",
+      "api_key_env": "ANTHROPIC_API_KEY",
+      "models": ["claude-sonnet-4-20250514", "claude-opus-4-20250514", "claude-haiku-4-20250514"]
+    }
+  },
+  "profiles": {
+    "glm": {
+      "provider": "glm",
+      "haiku": "glm-4.5-air",
+      "sonnet": "glm-4.7",
+      "opus": "glm-4.7"
+    },
+    "ds": {
+      "provider": "deepseek",
+      "haiku": "deepseek-chat",
+      "sonnet": "deepseek-v3",
+      "opus": "deepseek-v3"
+    },
+    "anthropic": {
+      "provider": "anthropic",
+      "haiku": "claude-haiku-4-20250514",
+      "sonnet": "claude-sonnet-4-20250514",
+      "opus": "claude-opus-4-20250514"
+    }
+  }
+}'
 
-# Initialize config
-init_config
+# Check jq dependency
+check_jq() {
+    if ! command -v jq &>/dev/null; then
+        echo "Error: jq is required but not installed." >&2
+        echo "Install with: brew install jq (macOS) or apt install jq (Linux)" >&2
+        exit 1
+    fi
+}
+
+# Initialize config file if not exists
+init_config() {
+    if [[ ! -f "$MMC_CONFIG_FILE" ]]; then
+        mkdir -p "$MMC_CONFIG_DIR"
+        echo "$DEFAULT_CONFIG" > "$MMC_CONFIG_FILE"
+        echo "Created config: $MMC_CONFIG_FILE"
+        echo "Edit with: mmc config"
+    fi
+}
+
+# Get JSON value from config
+# Usage: config_get ".providers.deepseek.base_url"
+config_get() {
+    jq -r "$1 // empty" "$MMC_CONFIG_FILE"
+}
+
+# List all profiles
+list_profiles() {
+    echo "Available profiles:"
+    echo ""
+    local profiles
+    profiles=$(config_get '.profiles | keys[]')
+    for p in $profiles; do
+        local provider
+        provider=$(config_get ".profiles.$p.provider")
+        local haiku sonnet opus
+        haiku=$(config_get ".profiles.$p.haiku")
+        sonnet=$(config_get ".profiles.$p.sonnet")
+        opus=$(config_get ".profiles.$p.opus")
+        echo "  $p"
+        echo "    provider: $provider"
+        echo "    haiku:    $haiku"
+        echo "    sonnet:   $sonnet"
+        echo "    opus:     $opus"
+        echo ""
+    done
+}
+
+# Show current environment status
+show_status() {
+    echo "Current Claude Code environment:"
+    echo ""
+    echo "  ANTHROPIC_BASE_URL:           ${ANTHROPIC_BASE_URL:-<not set>}"
+    echo "  ANTHROPIC_DEFAULT_HAIKU_MODEL: ${ANTHROPIC_DEFAULT_HAIKU_MODEL:-<not set>}"
+    echo "  ANTHROPIC_DEFAULT_SONNET_MODEL: ${ANTHROPIC_DEFAULT_SONNET_MODEL:-<not set>}"
+    echo "  ANTHROPIC_DEFAULT_OPUS_MODEL:  ${ANTHROPIC_DEFAULT_OPUS_MODEL:-<not set>}"
+    echo ""
+}
+
+# Get API key for provider
+# Usage: get_api_key <provider_name>
+get_api_key() {
+    local provider="$1"
+    local env_var
+    env_var=$(config_get ".providers.$provider.api_key_env")
+
+    if [[ -z "$env_var" ]]; then
+        echo "Error: No api_key_env defined for provider: $provider" >&2
+        return 1
+    fi
+
+    # Check environment variable
+    if [[ -n "${!env_var:-}" ]]; then
+        echo "${!env_var}"
+        return 0
+    fi
+
+    # Prompt user
+    echo ""
+    echo "API Key not found for: $provider"
+    echo "Environment variable: $env_var"
+    echo ""
+    read -p "Enter API Key: " -r user_key
+    [[ -z "$user_key" ]] && return 1
+
+    # Ask to save to shell config
+    read -p "Add to ~/.zshrc? [y/N] " -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo "export $env_var='$user_key'" >> ~/.zshrc
+        echo "Added to ~/.zshrc (restart shell or source to apply)"
+    fi
+
+    echo "$user_key"
+}
+
+# Validate profile configuration
+# Usage: validate_profile <profile_name>
+validate_profile() {
+    local profile="$1"
+    local provider haiku sonnet opus
+
+    provider=$(config_get ".profiles.$profile.provider")
+    haiku=$(config_get ".profiles.$profile.haiku")
+    sonnet=$(config_get ".profiles.$profile.sonnet")
+    opus=$(config_get ".profiles.$profile.opus")
+
+    if [[ -z "$provider" ]]; then
+        echo "Error: Profile '$profile' missing 'provider' field" >&2
+        return 1
+    fi
+    if [[ -z "$haiku" ]]; then
+        echo "Error: Profile '$profile' missing 'haiku' field" >&2
+        return 1
+    fi
+    if [[ -z "$sonnet" ]]; then
+        echo "Error: Profile '$profile' missing 'sonnet' field" >&2
+        return 1
+    fi
+    if [[ -z "$opus" ]]; then
+        echo "Error: Profile '$profile' missing 'opus' field" >&2
+        return 1
+    fi
+
+    # Validate provider exists
+    local base_url
+    base_url=$(config_get ".providers.$provider.base_url")
+    if [[ -z "$base_url" ]]; then
+        echo "Error: Provider '$provider' not found in config" >&2
+        return 1
+    fi
+}
+
+# Launch claude with profile
+# Usage: launch_profile <profile> [claude args...]
+launch_profile() {
+    local profile="$1"
+    shift
+
+    # Validate profile
+    if ! validate_profile "$profile"; then
+        exit 1
+    fi
+
+    local provider base_url api_key haiku sonnet opus
+
+    provider=$(config_get ".profiles.$profile.provider")
+    base_url=$(config_get ".providers.$provider.base_url")
+    haiku=$(config_get ".profiles.$profile.haiku")
+    sonnet=$(config_get ".profiles.$profile.sonnet")
+    opus=$(config_get ".profiles.$profile.opus")
+
+    # Get API key
+    api_key=$(get_api_key "$provider")
+    if [[ -z "$api_key" ]]; then
+        echo "Error: No API key available for provider: $provider" >&2
+        exit 1
+    fi
+
+    echo "Switching to profile: $profile (provider: $provider)"
+    echo ""
+
+    # Export environment variables
+    export ANTHROPIC_BASE_URL="$base_url"
+    export ANTHROPIC_AUTH_TOKEN="$api_key"
+    export ANTHROPIC_DEFAULT_HAIKU_MODEL="$haiku"
+    export ANTHROPIC_DEFAULT_SONNET_MODEL="$sonnet"
+    export ANTHROPIC_DEFAULT_OPUS_MODEL="$opus"
+
+    # Launch claude
+    exec claude "$@"
+}
+
+# Interactive profile selection
+interactive_select() {
+    local profiles
+    profiles=($(config_get '.profiles | keys[]'))
+
+    if [[ ${#profiles[@]} -eq 0 ]]; then
+        echo "No profiles configured. Run 'mmc config' to add one." >&2
+        exit 1
+    fi
+
+    if command -v fzf &>/dev/null; then
+        printf '%s\n' "${profiles[@]}" | fzf --prompt="Select profile > " --height=40%
+    else
+        echo "Available profiles:"
+        local i=1
+        for p in "${profiles[@]}"; do
+            local provider
+            provider=$(config_get ".profiles.$p.provider")
+            echo "  $i) $p ($provider)"
+            ((i++))
+        done
+        echo ""
+        read -p "Select [1-${#profiles[@]}]: " selection
+        echo "${profiles[$((selection-1))]}"
+    fi
+}
 
 # Show usage
 show_usage() {
     cat << 'USAGE'
-Usage: mmc [COMMAND] [OPTIONS]
+Usage: mmc <profile> [-- <claude args>]
 
 Commands:
-  <provider>     Switch to provider and launch Claude Code
-  ls             List available providers
-  status         Show current configuration
-  config edit    Edit configuration file
-
-Providers:
-  deepseek (ds)  DeepSeek API
-  glm            GLM (智谱清言) API
-  anthropic      Anthropic official API
+  <profile>    Launch claude with the specified profile
+  ls           List all available profiles
+  status       Show current environment variables
+  config       Edit configuration file
+  help         Show this help
 
 Examples:
-  mmc deepseek           Switch to DeepSeek and launch claude
-  mmc ds -y "help"       Switch and pass args to claude
-  mmc ls                 List providers
-  mmc status             Show current config
+  mmc glm                    # Launch with glm profile
+  mmc glm -- -y "hello"      # Pass arguments to claude
+  mmc ds -- --dangerously-skip-permissions
+  mmc ls                     # List profiles
+  mmc                        # Interactive selection
 
-Environment Variables:
-  DEEPSEEK_API_KEY       DeepSeek API key
-  GLM_API_KEY            GLM API key
-  ANTHROPIC_API_KEY      Anthropic API key
+Config file: ~/.mukits/config.json
 USAGE
 }
 
-# Interactive provider selection
-interactive_select() {
-    local providers
-    providers=($(get_all_provider_names))
-
-    if command -v fzf &>/dev/null; then
-        printf '%s\n' "${providers[@]}" | fzf --prompt="选择提供商 > " --height=40%
-    else
-        echo "Available providers:"
-        local i=1
-        for p in "${providers[@]}"; do
-            echo "  $i) $p"
-            ((i++))
-        done
-        echo ""
-        read -p "Select [1-${#providers[@]}]: " selection
-        echo "${providers[$((selection-1))]}"
-    fi
-}
-
-# Main command handler
+# Main
 main() {
+    check_jq
+    init_config
+
     local command="${1:-}"
 
     case "$command" in
         "")
-            # Interactive mode - select provider and launch
-            local provider
-            provider="$(interactive_select)"
-            if [[ -z "$provider" ]]; then
-                echo "No provider selected" >&2
-                exit 1
-            fi
-
-            # Resolve alias
-            case "$provider" in
-                "ds") provider="deepseek" ;;
-            esac
-
-            # Verify provider exists
-            if ! get_all_provider_names | grep -qw "$provider"; then
-                echo "Unknown provider: $provider" >&2
-                echo "" >&2
-                list_providers
-                exit 1
-            fi
-
-            # Ensure auth token
-            local auth_token
-            auth_token="$(ensure_auth_token "$provider")"
-            if [[ -z "$auth_token" ]]; then
-                echo "Error: No API key configured for $provider" >&2
-                exit 1
-            fi
-
-            # Emit exports and launch claude
-            echo "Switching to provider: $provider"
-            echo ""
-
-            eval "$(emit_env_exports "$provider")"
-            exec claude
+            # Interactive mode
+            local profile
+            profile="$(interactive_select)"
+            [[ -z "$profile" ]] && exit 1
+            launch_profile "$profile"
             ;;
 
         "help"|"-h"|"--help")
@@ -112,7 +292,7 @@ main() {
             ;;
 
         "ls"|"list")
-            list_providers
+            list_profiles
             ;;
 
         "status")
@@ -120,54 +300,13 @@ main() {
             ;;
 
         "config")
-            local subcmd="${2:-}"
-            case "$subcmd" in
-                "edit")
-                    local editor="${EDITOR:-vi}"
-                    "$editor" "$MMC_CONFIG_FILE"
-                    ;;
-                *)
-                    echo "Usage: mmc config edit"
-                    exit 1
-                    ;;
-            esac
+            local editor="${EDITOR:-vi}"
+            "$editor" "$MMC_CONFIG_FILE"
             ;;
 
         *)
-            # Treat as provider name
-            local provider="$command"
-            local provider_args=("${@:2}")
-
-            # Resolve alias
-            case "$provider" in
-                "ds") provider="deepseek" ;;
-            esac
-
-            # Verify provider exists
-            if ! get_all_provider_names | grep -qw "$provider"; then
-                echo "Unknown provider: $provider" >&2
-                echo "" >&2
-                list_providers
-                exit 1
-            fi
-
-            # Ensure auth token
-            local auth_token
-            auth_token="$(ensure_auth_token "$provider")"
-            if [[ -z "$auth_token" ]]; then
-                echo "Error: No API key configured for $provider" >&2
-                exit 1
-            fi
-
-            # Emit exports and launch claude
-            echo "Switching to provider: $provider"
-            echo ""
-
-            # Source the exports in current shell, then exec
-            eval "$(emit_env_exports "$provider")"
-
-            # Launch claude with remaining args
-            exec claude "${provider_args[@]}"
+            # Treat as profile name
+            launch_profile "$@"
             ;;
     esac
 }

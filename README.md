@@ -1,14 +1,14 @@
-# mukits-cli
+# MUKits
 
 个人常用工具集，支持一键安装。
+
+**GitHub:** https://github.com/CasperMoo/MUKits
 
 ## 安装
 
 ```bash
 curl -sL https://raw.githubusercontent.com/CasperMoo/MUKits/main/install.sh | bash
 ```
-
-> 将 `OWNER` 替换为你的 GitHub 用户名
 
 安装脚本会自动：
 1. 检查并安装 Claude Code（如果未安装）

@@ -5,7 +5,7 @@
 set -euo pipefail
 
 # Configuration
-REPO_URL="${REPO_URL:-https://github.com/OWNER/mukits.git}"
+REPO_URL="${REPO_URL:-https://github.com/CasperMoo/MUKits.git}"
 INSTALL_DIR="$HOME/.mukits"
 TOOLS_TO_INSTALL="${MUKITS_TOOLS:-mmc}"
 

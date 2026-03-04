@@ -5,7 +5,7 @@
 ## 安装
 
 ```bash
-curl -sL https://raw.githubusercontent.com/OWNER/mukits/main/install.sh | bash
+curl -sL https://raw.githubusercontent.com/CasperMoo/MUKits/main/install.sh | bash
 ```
 
 > 将 `OWNER` 替换为你的 GitHub 用户名

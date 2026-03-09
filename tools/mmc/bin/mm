@@ -90,7 +90,7 @@ fzf_select() {
             --color='pointer:2,marker:2' \
             --bind 'j:down,k:up' \
             --header="↑↓/jk 选择 | 回车确认 | ESC 取消" \
-            < /dev/tty 2>/dev/null || true
+            2>/dev/null || true
     else
         echo -e "${CYAN}$prompt${NC}"
         local i

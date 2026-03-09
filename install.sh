@@ -33,6 +33,66 @@ check_claude_code() {
     return 1
 }
 
+# Check if fzf is installed
+check_fzf() {
+    if command -v fzf &>/dev/null; then
+        local version
+        version=$(fzf --version 2>/dev/null | head -1 || echo "unknown")
+        log_info "fzf already installed: $version"
+        return 0
+    fi
+    return 1
+}
+
+# Install fzf
+install_fzf() {
+    log_step "Installing fzf..."
+
+    # macOS: try brew first
+    if [[ "$(uname -s)" == "Darwin" ]] && command -v brew &>/dev/null; then
+        if brew install fzf 2>/dev/null; then
+            if command -v fzf &>/dev/null; then
+                log_info "fzf installed successfully!"
+                return 0
+            fi
+        fi
+    fi
+
+    # Fallback: install from git
+    local fzf_dir="$HOME/.fzf"
+    if [[ -d "$fzf_dir" ]]; then
+        log_info "fzf directory exists, skipping"
+        return 0
+    fi
+
+    if command -v git &>/dev/null; then
+        log_info "Cloning fzf from GitHub..."
+        git clone --depth 1 https://github.com/junegunn/fzf.git "$fzf_dir" 2>/dev/null || {
+            log_warn "Failed to clone fzf, continuing without it"
+            return 0
+        }
+
+        # Run install script
+        if [[ -f "$fzf_dir/install" ]]; then
+            "$fzf_dir/install" --bin --no-update-rc --no-bash --no-zsh --no-fish 2>/dev/null || true
+        fi
+
+        # Add to PATH if needed
+        if [[ -d "$fzf_dir/bin" ]] && [[ ":$PATH:" != *":$fzf_dir/bin:"* ]]; then
+            export PATH="$fzf_dir/bin:$PATH"
+            echo 'export PATH="$HOME/.fzf/bin:$PATH"' >> ~/.zshrc 2>/dev/null || true
+        fi
+
+        if command -v fzf &>/dev/null; then
+            log_info "fzf installed successfully!"
+            return 0
+        fi
+    fi
+
+    log_warn "Could not install fzf, will use fallback selection"
+    return 0
+}
+
 # Install Claude Code
 install_claude_code() {
     log_step "Installing Claude Code..."
@@ -154,6 +214,13 @@ main() {
         log_step "Checking Claude Code..."
         if ! check_claude_code; then
             install_claude_code
+        fi
+        echo ""
+
+        # Step 1.5: Check/Install fzf
+        log_step "Checking fzf..."
+        if ! check_fzf; then
+            install_fzf
         fi
         echo ""
     fi

@@ -275,20 +275,57 @@ setup_new_profile() {
 
 setup_manage_keys() {
     echo ""
-    echo -e "${BLUE}API Key 配置状态${NC}"
+    echo -e "${BLUE}API Key 管理${NC}"
 
     local provider_ids=("glm" "deepseek" "volcengine" "aliyun" "siliconflow" "anthropic" "openrouter")
+    local items=()
     for p in "${provider_ids[@]}"; do
-        local name env_var
+        local name status
         name=$(config_get ".providers.$p.name")
-        env_var=$(config_get ".providers.$p.api_key_env")
-        if [[ -n "${!env_var:-}" ]]; then
-            echo -e "  ${GREEN}✓${NC} $name ${GREEN}已配置${NC}"
+        if get_api_key "$p" >/dev/null 2>&1; then
+            status="${GREEN}✓ 已配置${NC}"
         else
-            echo -e "  ${RED}✗${NC} $name ${RED}未配置${NC}"
+            status="${RED}✗ 未配置${NC}"
+        fi
+        items+=("$(echo -e "$name  $status")")
+    done
+
+    local choice
+    choice=$(fzf_select "选择要设置的服务商:" "${items[@]}")
+    [[ -z "$choice" ]] && return
+
+    # Map display name back to provider_id
+    local provider_id=""
+    for p in "${provider_ids[@]}"; do
+        local name
+        name=$(config_get ".providers.$p.name")
+        if [[ "$choice" == *"$name"* ]]; then
+            provider_id="$p"
+            break
         fi
     done
+    [[ -z "$provider_id" ]] && return
+
+    local provider_name apply_url
+    provider_name=$(config_get ".providers.$provider_id.name")
+    apply_url=$(config_get ".providers.$provider_id.apply_url")
+
     echo ""
+    if get_api_key "$provider_id" >/dev/null 2>&1; then
+        echo -e "  ${GREEN}✓ $provider_name 当前已配置${NC}"
+    else
+        echo -e "  ${RED}✗ $provider_name 尚未配置${NC}"
+        echo "  申请地址: $apply_url"
+    fi
+
+    echo ""
+    read -p "请输入新的 API Key（留空取消）: " -r api_key
+    if [[ -n "$api_key" ]]; then
+        config_set ".providers.$provider_id.api_key = \"$api_key\""
+        echo -e "${GREEN}✓ 已保存到 $MM_CONFIG_FILE${NC}"
+    else
+        echo -e "${YELLOW}已取消${NC}"
+    fi
 }
 
 setup_switch_profile() {

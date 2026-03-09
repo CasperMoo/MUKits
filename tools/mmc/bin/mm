@@ -18,19 +18,19 @@ NC='\033[0m'
 # Default providers
 DEFAULT_PROVIDERS='{
   "glm":        {"name": "智谱 GLM",    "base_url": "https://open.bigmodel.cn/api/anthropic",          "api_key_env": "GLM_API_KEY",        "apply_url": "https://open.bigmodel.cn/",
-    "models": {"haiku": "glm-4.7", "sonnet": "glm-5", "opus": "glm-5"}},
+    "models": ["glm-4.7", "glm-5"]},
   "deepseek":   {"name": "DeepSeek",    "base_url": "https://api.deepseek.com/anthropic",               "api_key_env": "DEEPSEEK_API_KEY",   "apply_url": "https://platform.deepseek.com/",
-    "models": {"haiku": "deepseek-chat", "sonnet": "deepseek-v3", "opus": "deepseek-v3"}},
+    "models": ["deepseek-chat", "deepseek-v3"]},
   "volcengine": {"name": "火山引擎",    "base_url": "https://ark.cn-beijing.volces.com/api/v3/",         "api_key_env": "VOLCENGINE_API_KEY", "apply_url": "https://console.volcengine.com/ark",
-    "models": {"haiku": "doubao-pro-32k", "sonnet": "doubao-pro-32k", "opus": "doubao-pro-256k"}},
+    "models": ["doubao-pro-32k", "doubao-pro-256k"]},
   "aliyun":     {"name": "阿里云百炼",  "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1","api_key_env": "ALIYUN_API_KEY",     "apply_url": "https://bailian.console.aliyun.com/",
-    "models": {"haiku": "qwen-turbo", "sonnet": "qwen-plus", "opus": "qwen-max"}},
+    "models": ["qwen-turbo", "qwen-plus", "qwen-max"]},
   "siliconflow":{"name": "硅基流动",    "base_url": "https://api.siliconflow.cn/v1",                    "api_key_env": "SILICONFLOW_API_KEY","apply_url": "https://cloud.siliconflow.cn/",
-    "models": {"haiku": "Qwen/Qwen2.5-7B-Instruct", "sonnet": "Qwen/Qwen2.5-72B-Instruct", "opus": "deepseek-ai/DeepSeek-V3"}},
+    "models": ["Qwen/Qwen2.5-7B-Instruct", "Qwen/Qwen2.5-72B-Instruct", "deepseek-ai/DeepSeek-V3"]},
   "anthropic":  {"name": "Anthropic",   "base_url": "https://api.anthropic.com",                        "api_key_env": "ANTHROPIC_API_KEY",  "apply_url": "https://console.anthropic.com/",
-    "models": {"haiku": "claude-haiku-4-20250514", "sonnet": "claude-sonnet-4-20250514", "opus": "claude-opus-4-20250514"}},
+    "models": ["claude-haiku-4-20250514", "claude-sonnet-4-20250514", "claude-opus-4-20250514"]},
   "openrouter": {"name": "OpenRouter",  "base_url": "https://openrouter.ai/api/v1",                     "api_key_env": "OPENROUTER_API_KEY", "apply_url": "https://openrouter.ai/",
-    "models": {"haiku": "anthropic/claude-haiku-4", "sonnet": "anthropic/claude-sonnet-4", "opus": "anthropic/claude-opus-4"}}
+    "models": ["anthropic/claude-haiku-4", "anthropic/claude-sonnet-4", "anthropic/claude-opus-4"]}
 }'
 
 DEFAULT_CONFIG="{\"providers\": $DEFAULT_PROVIDERS, \"profiles\": {}, \"active_profile\": \"\", \"options\": {\"skip_permissions\": false}}"
@@ -223,10 +223,13 @@ setup_new_profile() {
         esac
     fi
 
+    # 默认：第一个模型 → haiku（轻量），最后一个 → sonnet/opus（最强）
     local haiku sonnet opus
-    haiku=$(config_get ".providers.$provider_id.models.haiku")
-    sonnet=$(config_get ".providers.$provider_id.models.sonnet")
-    opus=$(config_get ".providers.$provider_id.models.opus")
+    haiku=$(config_get ".providers.$provider_id.models[0]")
+    local last_idx
+    last_idx=$(config_get ".providers.$provider_id.models | length - 1")
+    sonnet=$(config_get ".providers.$provider_id.models[$last_idx]")
+    opus="$sonnet"
 
     config_set ".profiles[\"$provider_id\"] = {\"provider\": \"$provider_id\", \"haiku\": \"$haiku\", \"sonnet\": \"$sonnet\", \"opus\": \"$opus\"}"
     config_set ".active_profile = \"$provider_id\""

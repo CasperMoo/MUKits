@@ -396,7 +396,9 @@ select_and_launch() {
     active=$(config_get '.active_profile')
 
     local profile
-    if [[ ${#profiles[@]} -eq 1 ]]; then
+    if [[ -n "$active" ]] && config_get ".profiles[\"$active\"]" >/dev/null 2>&1 && [[ -n "$(config_get ".profiles[\"$active\"]")" ]]; then
+        profile="$active"
+    elif [[ ${#profiles[@]} -eq 1 ]]; then
         profile="${profiles[0]}"
     else
         profile=$(fzf_select "选择配置:" "${profiles[@]}")
@@ -446,6 +448,19 @@ main() {
 
     local cmd="${1:-}"
 
+    # Handle -p <profile>
+    if [[ "$cmd" == "-p" ]]; then
+        local profile="${2:-}"
+        [[ -z "$profile" ]] && { echo -e "${RED}错误: -p 需要指定 profile 名称${NC}"; exit 1; }
+        if [[ -z "$(config_get ".profiles[\"$profile\"]")" ]]; then
+            echo -e "${RED}错误: profile '$profile' 不存在${NC}"
+            exit 1
+        fi
+        shift 2
+        launch_profile "$profile" "$@"
+        return
+    fi
+
     case "$cmd" in
         "")
             if ! has_profiles || ! has_any_api_key; then
@@ -472,10 +487,11 @@ main() {
             echo "用法: mm [命令]"
             echo ""
             echo "命令:"
-            echo "  mm          启动 Claude Code"
-            echo "  mm setup    配置向导"
-            echo "  mm update   更新到最新版本"
-            echo "  mm help     显示帮助"
+            echo "  mm              用默认配置启动 Claude Code"
+            echo "  mm -p <profile> 指定 profile 启动"
+            echo "  mm setup        配置向导"
+            echo "  mm update       更新到最新版本"
+            echo "  mm help         显示帮助"
             ;;
         *)
             if [[ -n "$(config_get ".profiles[\"$cmd\"]")" ]]; then

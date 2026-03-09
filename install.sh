@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # mukits-cli installer
-# Usage: curl -sL https://raw.githubusercontent.com/OWNER/mukits/main/install.sh | bash
+# Usage: curl -sL https://raw.githubusercontent.com/CasperMoo/MUKits/main/install.sh | bash
 
 set -euo pipefail
 
@@ -8,6 +8,7 @@ set -euo pipefail
 REPO_URL="${REPO_URL:-https://github.com/CasperMoo/MUKits.git}"
 INSTALL_DIR="$HOME/.mukits"
 TOOLS_TO_INSTALL="${MUKITS_TOOLS:-mmc}"
+VERSION_URL="https://raw.githubusercontent.com/CasperMoo/MUKits/main/version.json"
 
 # Colors
 RED='\033[0;31m'
@@ -70,6 +71,21 @@ install_claude_code() {
     exit 1
 }
 
+# Save version info
+save_version_info() {
+    local version_file="$INSTALL_DIR/.version"
+
+    # Try to get version from version.json in the repo
+    if [[ -f "$INSTALL_DIR/version.json" ]]; then
+        local version
+        version=$(grep -o '"version"[[:space:]]*:[[:space:]]*"[^"]*"' "$INSTALL_DIR/version.json" | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+        if [[ -n "$version" ]]; then
+            echo "$version" > "$version_file"
+            log_info "Version: $version"
+        fi
+    fi
+}
+
 # Clone or update repository
 clone_or_update() {
     if [[ -d "$INSTALL_DIR" ]]; then
@@ -121,30 +137,41 @@ install_tool() {
 
 # Main installation
 main() {
+    # Check for update mode
+    local is_update="${1:-}"
+    if [[ "$is_update" == "--update" ]]; then
+        log_info "Update mode: refreshing installation..."
+    fi
+
     echo ""
     echo -e "${BLUE}╔══════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║     mukits-cli Installer             ║${NC}"
+    echo -e "${BLUE}║     MUKits Installer                 ║${NC}"
     echo -e "${BLUE}╚══════════════════════════════════════╝${NC}"
     echo ""
 
-    # Step 1: Check/Install Claude Code
-    log_step "Checking Claude Code..."
-    if ! check_claude_code; then
-        install_claude_code
+    # Step 1: Check/Install Claude Code (skip in update mode)
+    if [[ "$is_update" != "--update" ]]; then
+        log_step "Checking Claude Code..."
+        if ! check_claude_code; then
+            install_claude_code
+        fi
+        echo ""
     fi
-    echo ""
 
     # Step 2: Clone/update repository
-    log_step "Installing mukits..."
+    log_step "Installing MUKits..."
     clone_or_update
 
-    # Step 3: Source shared library
+    # Step 3: Save version info
+    save_version_info
+
+    # Step 4: Source shared library
     source_installer_lib
 
-    # Step 4: Ensure ~/.local/bin
+    # Step 5: Ensure ~/.local/bin
     ensure_local_bin
 
-    # Step 5: Install tools
+    # Step 6: Install tools
     for tool in $TOOLS_TO_INSTALL; do
         install_tool "$tool"
     done
@@ -152,6 +179,12 @@ main() {
     echo ""
     log_info "Installation complete!"
     echo ""
+
+    # Skip setup prompt in update mode
+    if [[ "$is_update" == "--update" ]]; then
+        return 0
+    fi
+
     echo "Quick start:"
     echo "  mm          # 启动 Claude Code"
     echo "  mm setup    # 配置向导"

@@ -44,15 +44,30 @@ install_claude_code() {
         exit 1
     fi
 
-    # Install claude code globally
-    npm install -g @anthropic-ai/claude-code
+    # Try install with official registry first, then fallback to China mirrors
+    local registries=(
+        "https://registry.npmjs.org/"
+        "https://registry.npmmirror.com/"
+        "https://mirrors.cloud.tencent.com/npm/"
+        "https://npm.aliyun.com/"
+    )
 
-    if command -v claude &>/dev/null; then
-        log_info "Claude Code installed successfully!"
-    else
-        log_error "Failed to install Claude Code"
-        exit 1
-    fi
+    for registry in "${registries[@]}"; do
+        log_info "Trying registry: $registry"
+        if npm install -g @anthropic-ai/claude-code --registry="$registry" 2>/dev/null; then
+            if command -v claude &>/dev/null; then
+                log_info "Claude Code installed successfully!"
+                return 0
+            fi
+        fi
+        log_warn "Failed with $registry, trying next..."
+    done
+
+    log_error "Failed to install Claude Code from all registries"
+    echo ""
+    echo "Please try manually:"
+    echo "  npm install -g @anthropic-ai/claude-code --registry=https://registry.npmmirror.com/"
+    exit 1
 }
 
 # Clone or update repository

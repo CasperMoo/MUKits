@@ -426,7 +426,7 @@ launch_profile() {
     [[ $(config_get '.options.skip_permissions') == "true" ]] && claude_args+=("--dangerously-skip-permissions")
     claude_args+=("$@")
 
-    exec claude "${claude_args[@]}"
+    exec claude "${claude_args[@]+"${claude_args[@]}"}"
 }
 
 # Main

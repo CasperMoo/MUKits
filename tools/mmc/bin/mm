@@ -18,7 +18,7 @@ NC='\033[0m'
 # Default providers
 DEFAULT_PROVIDERS='{
   "glm": {"name": "智谱 GLM", "base_url": "https://open.bigmodel.cn/api/paas/v4/", "api_key_env": "GLM_API_KEY", "apply_url": "https://open.bigmodel.cn/",
-    "presets": {"fast": {"haiku": "glm-4-flash", "sonnet": "glm-4-flash", "opus": "glm-4-air"}, "balanced": {"haiku": "glm-4-air", "sonnet": "glm-4", "opus": "glm-4"}, "powerful": {"haiku": "glm-4", "sonnet": "glm-4-plus", "opus": "glm-4-plus"}}},
+    "presets": {"fast": {"haiku": "glm-4.7", "sonnet": "glm-4.7", "opus": "glm-4.7"}, "balanced": {"haiku": "glm-4.7", "sonnet": "glm-5", "opus": "glm-5"}, "powerful": {"haiku": "glm-4.7", "sonnet": "glm-5", "opus": "glm-5"}}},
   "deepseek": {"name": "DeepSeek", "base_url": "https://api.deepseek.com/anthropic", "api_key_env": "DEEPSEEK_API_KEY", "apply_url": "https://platform.deepseek.com/",
     "presets": {"fast": {"haiku": "deepseek-chat", "sonnet": "deepseek-chat", "opus": "deepseek-chat"}, "balanced": {"haiku": "deepseek-chat", "sonnet": "deepseek-v3", "opus": "deepseek-v3"}, "powerful": {"haiku": "deepseek-v3", "sonnet": "deepseek-v3", "opus": "deepseek-v3"}}},
   "volcengine": {"name": "火山引擎", "base_url": "https://ark.cn-beijing.volces.com/api/v3/", "api_key_env": "VOLCENGINE_API_KEY", "apply_url": "https://console.volcengine.com/ark",

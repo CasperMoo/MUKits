@@ -1,8 +1,7 @@
 {
-  "version": "1.1.5",
+  "version": "1.1.6",
   "release_date": "2026-03-09",
   "changelog": [
-    "修复 profile 名称含连字符导致 jq 解析错误的问题",
-    "API Key 改为存储在 ~/.mukits/config.json，不再写入 ~/.zshrc"
+    "更新 GLM 默认模型：低档用 glm-4.7，中高档用 glm-5"
   ]
 }

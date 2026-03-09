@@ -214,6 +214,9 @@ setup_new_profile() {
                 if [[ -n "$api_key" ]]; then
                     config_set ".providers.$provider_id.api_key = \"$api_key\""
                     echo -e "${GREEN}✓ 已保存到 $MM_CONFIG_FILE${NC}"
+                else
+                    echo -e "${YELLOW}未输入 Key，已取消${NC}"
+                    return
                 fi
                 ;;
             跳过*)

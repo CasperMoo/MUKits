@@ -137,13 +137,9 @@ main() {
     echo ""
     log_info "Installation complete!"
     echo ""
-    echo "Installed commands:"
-    echo "  - mmc (Claude Code profile manager)"
-    echo ""
     echo "Quick start:"
-    echo "  mmc ls       # List available profiles"
-    echo "  mmc glm      # Launch with glm profile"
-    echo "  mmc config   # Edit configuration"
+    echo "  mm          # 启动 Claude Code"
+    echo "  mm setup    # 配置向导"
     echo ""
 
     if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then

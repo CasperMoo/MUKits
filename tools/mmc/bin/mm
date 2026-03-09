@@ -456,6 +456,16 @@ main() {
             select_and_launch "$@"
             ;;
         setup) setup_wizard ;;
+        update)
+            local install_dir="$HOME/.mukits"
+            if [[ -d "$install_dir/.git" ]]; then
+                echo -e "${BLUE}更新 MUKits...${NC}"
+                git -C "$install_dir" pull --ff-only && echo -e "${GREEN}✓ 更新完成${NC}" || echo -e "${RED}更新失败${NC}"
+            else
+                echo -e "${RED}错误: 安装目录不是 git 仓库，请重新运行安装脚本${NC}"
+                exit 1
+            fi
+            ;;
         help|-h|--help)
             echo "MM - Claude Code 简易启动器"
             echo ""
@@ -464,10 +474,11 @@ main() {
             echo "命令:"
             echo "  mm          启动 Claude Code"
             echo "  mm setup    配置向导"
+            echo "  mm update   更新到最新版本"
             echo "  mm help     显示帮助"
             ;;
         *)
-            if config_get ".profiles[\"$cmd\"]" >/dev/null 2>&1; then
+            if [[ -n "$(config_get ".profiles[\"$cmd\"]")" ]]; then
                 launch_profile "$@"
             else
                 echo -e "${RED}错误: 未知命令 '$cmd'${NC}"

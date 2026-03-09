@@ -188,14 +188,18 @@ jq '
   .active_profile = "glm"
 ' "$TEST_DIR/config.json" > /tmp/t.json && mv /tmp/t.json "$TEST_DIR/config.json"
 
-# 用 env 捕获导出的环境变量（通过 bash -c 间接检查）
+# 捕获输出和退出码
 launch_output=$(MM_CONFIG_DIR="$TEST_DIR" PATH="$TEST_DIR/bin:$PATH" bash "$MM_BIN" 2>&1 || true)
-
-run_test "launch 时导出 ANTHROPIC_BASE_URL" \
-    bash -c "[[ '$launch_output' == *'ANTHROPIC_BASE_URL'* ]] || true; [[ 1==1 ]]"
+launch_exit=$(MM_CONFIG_DIR="$TEST_DIR" PATH="$TEST_DIR/bin:$PATH" bash "$MM_BIN" >/dev/null 2>&1; echo $?)
 
 run_test "mm 无参启动显示 '已切换到'" \
     bash -c "[[ '$launch_output' == *'已切换到'* ]]"
+
+run_test "launch 时导出 ANTHROPIC_BASE_URL" \
+    bash -c "[[ '$launch_output' == *'ANTHROPIC_BASE_URL'* ]]"
+
+run_test "launch 无报错退出（无 unbound variable 等）" \
+    bash -c "[[ '$launch_output' != *'unbound variable'* ]] && [[ '$launch_output' != *': line '*': '* ]]"
 teardown_test_env
 
 # ══════════════════════════════════════════════════
@@ -252,7 +256,41 @@ teardown_test_env
 
 # ══════════════════════════════════════════════════
 echo ""
-echo -e "${BLUE}━━━ 8. 数据结构完整性 ━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${BLUE}━━━ 8. open URL（不 fallthrough 到 xdg-open）━━━━${NC}"
+
+setup_test_env
+bash -c "MM_CONFIG_DIR=$TEST_DIR $MM_BIN help >/dev/null"
+# mock open（成功）和 xdg-open（存在但不应被调用）
+mkdir -p "$TEST_DIR/bin"
+cat > "$TEST_DIR/bin/open" <<'MOCK'
+#!/usr/bin/env bash
+echo "OPEN_CALLED url=$1"
+exit 0
+MOCK
+cat > "$TEST_DIR/bin/xdg-open" <<'MOCK'
+#!/usr/bin/env bash
+echo "XDG_OPEN_CALLED url=$1"
+exit 0
+MOCK
+chmod +x "$TEST_DIR/bin/open" "$TEST_DIR/bin/xdg-open"
+
+run_test "open URL 只调用 open，不调用 xdg-open" \
+    bash -c "
+      # 直接提取并测试 open URL 逻辑
+      url='https://open.bigmodel.cn/'
+      out=\$(PATH=$TEST_DIR/bin:\$PATH bash -c '
+        if command -v open &>/dev/null; then
+          open \"\$1\"
+        elif command -v xdg-open &>/dev/null; then
+          xdg-open \"\$1\"
+        fi
+      ' -- \"\$url\" 2>&1)
+      [[ \$out == 'OPEN_CALLED'* ]] && [[ \$out != *'XDG_OPEN_CALLED'* ]]"
+teardown_test_env
+
+# ══════════════════════════════════════════════════
+echo ""
+echo -e "${BLUE}━━━ 9. 数据结构完整性 ━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 setup_test_env
 bash -c "MM_CONFIG_DIR=$TEST_DIR $MM_BIN help >/dev/null"

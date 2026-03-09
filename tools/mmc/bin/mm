@@ -1,0 +1,655 @@
+#!/usr/bin/env bash
+# mm - Claude Code 简易启动器
+# Usage: mm [profile] [-- <claude args>]
+
+set -euo pipefail
+
+# Config paths
+MM_CONFIG_DIR="${MM_CONFIG_DIR:-$HOME/.mukits}"
+MM_CONFIG_FILE="$MM_CONFIG_DIR/config.json"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+# Default providers config
+DEFAULT_PROVIDERS='{
+  "glm": {
+    "name": "智谱 GLM",
+    "base_url": "https://open.bigmodel.cn/api/paas/v4/",
+    "api_key_env": "GLM_API_KEY",
+    "apply_url": "https://open.bigmodel.cn/",
+    "presets": {
+      "fast": { "haiku": "glm-4-flash", "sonnet": "glm-4-flash", "opus": "glm-4-air" },
+      "balanced": { "haiku": "glm-4-air", "sonnet": "glm-4", "opus": "glm-4" },
+      "powerful": { "haiku": "glm-4", "sonnet": "glm-4-plus", "opus": "glm-4-plus" }
+    }
+  },
+  "deepseek": {
+    "name": "DeepSeek",
+    "base_url": "https://api.deepseek.com/anthropic",
+    "api_key_env": "DEEPSEEK_API_KEY",
+    "apply_url": "https://platform.deepseek.com/",
+    "presets": {
+      "fast": { "haiku": "deepseek-chat", "sonnet": "deepseek-chat", "opus": "deepseek-chat" },
+      "balanced": { "haiku": "deepseek-chat", "sonnet": "deepseek-v3", "opus": "deepseek-v3" },
+      "powerful": { "haiku": "deepseek-v3", "sonnet": "deepseek-v3", "opus": "deepseek-v3" }
+    }
+  },
+  "volcengine": {
+    "name": "火山引擎",
+    "base_url": "https://ark.cn-beijing.volces.com/api/v3/",
+    "api_key_env": "VOLCENGINE_API_KEY",
+    "apply_url": "https://console.volcengine.com/ark",
+    "presets": {
+      "fast": { "haiku": "doubao-pro-32k", "sonnet": "doubao-pro-32k", "opus": "doubao-pro-32k" },
+      "balanced": { "haiku": "doubao-pro-32k", "sonnet": "doubao-pro-32k", "opus": "doubao-pro-256k" },
+      "powerful": { "haiku": "doubao-pro-256k", "sonnet": "doubao-pro-256k", "opus": "doubao-pro-256k" }
+    }
+  },
+  "aliyun": {
+    "name": "阿里云百炼",
+    "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "api_key_env": "ALIYUN_API_KEY",
+    "apply_url": "https://bailian.console.aliyun.com/",
+    "presets": {
+      "fast": { "haiku": "qwen-turbo", "sonnet": "qwen-turbo", "opus": "qwen-plus" },
+      "balanced": { "haiku": "qwen-plus", "sonnet": "qwen-plus", "opus": "qwen-max" },
+      "powerful": { "haiku": "qwen-max", "sonnet": "qwen-max", "opus": "qwen-max" }
+    }
+  },
+  "siliconflow": {
+    "name": "硅基流动",
+    "base_url": "https://api.siliconflow.cn/v1",
+    "api_key_env": "SILICONFLOW_API_KEY",
+    "apply_url": "https://cloud.siliconflow.cn/",
+    "presets": {
+      "fast": { "haiku": "Qwen/Qwen2.5-7B-Instruct", "sonnet": "Qwen/Qwen2.5-7B-Instruct", "opus": "Qwen/Qwen2.5-32B-Instruct" },
+      "balanced": { "haiku": "Qwen/Qwen2.5-32B-Instruct", "sonnet": "Qwen/Qwen2.5-72B-Instruct", "opus": "Qwen/Qwen2.5-72B-Instruct" },
+      "powerful": { "haiku": "deepseek-ai/DeepSeek-V3", "sonnet": "deepseek-ai/DeepSeek-V3", "opus": "deepseek-ai/DeepSeek-V3" }
+    }
+  },
+  "anthropic": {
+    "name": "Anthropic",
+    "base_url": "https://api.anthropic.com",
+    "api_key_env": "ANTHROPIC_API_KEY",
+    "apply_url": "https://console.anthropic.com/",
+    "presets": {
+      "fast": { "haiku": "claude-haiku-4-20250514", "sonnet": "claude-haiku-4-20250514", "opus": "claude-sonnet-4-20250514" },
+      "balanced": { "haiku": "claude-haiku-4-20250514", "sonnet": "claude-sonnet-4-20250514", "opus": "claude-sonnet-4-20250514" },
+      "powerful": { "haiku": "claude-sonnet-4-20250514", "sonnet": "claude-opus-4-20250514", "opus": "claude-opus-4-20250514" }
+    }
+  },
+  "openrouter": {
+    "name": "OpenRouter",
+    "base_url": "https://openrouter.ai/api/v1",
+    "api_key_env": "OPENROUTER_API_KEY",
+    "apply_url": "https://openrouter.ai/",
+    "presets": {
+      "fast": { "haiku": "anthropic/claude-haiku-4", "sonnet": "anthropic/claude-haiku-4", "opus": "anthropic/claude-sonnet-4" },
+      "balanced": { "haiku": "anthropic/claude-haiku-4", "sonnet": "anthropic/claude-sonnet-4", "opus": "anthropic/claude-sonnet-4" },
+      "powerful": { "haiku": "anthropic/claude-sonnet-4", "sonnet": "anthropic/claude-opus-4", "opus": "anthropic/claude-opus-4" }
+    }
+  }
+}'
+
+# Default config template
+DEFAULT_CONFIG="{
+  \"providers\": $DEFAULT_PROVIDERS,
+  \"profiles\": {},
+  \"active_profile\": \"\",
+  \"options\": {
+    \"skip_permissions\": false
+  }
+}"
+
+# ============================================
+# Utility Functions
+# ============================================
+
+check_jq() {
+    if ! command -v jq &>/dev/null; then
+        echo -e "${RED}错误: 需要安装 jq${NC}" >&2
+        echo "安装: brew install jq (macOS) 或 apt install jq (Linux)" >&2
+        exit 1
+    fi
+}
+
+config_get() {
+    jq -r "$1 // empty" "$MM_CONFIG_FILE"
+}
+
+config_set() {
+    local tmp
+    tmp=$(mktemp)
+    jq "$1" "$MM_CONFIG_FILE" > "$tmp" && mv "$tmp" "$MM_CONFIG_FILE"
+}
+
+init_config() {
+    if [[ ! -f "$MM_CONFIG_FILE" ]]; then
+        mkdir -p "$MM_CONFIG_DIR"
+        echo "$DEFAULT_CONFIG" > "$MM_CONFIG_FILE"
+    fi
+}
+
+get_api_key() {
+    local provider="$1"
+    local env_var
+    env_var=$(config_get ".providers.$provider.api_key_env")
+    [[ -n "${!env_var:-}" ]] && echo "${!env_var}" && return 0
+    return 1
+}
+
+has_any_api_key() {
+    local providers
+    providers=$(config_get '.providers | keys[]')
+    for p in $providers; do
+        if get_api_key "$p" >/dev/null 2>&1; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+has_profiles() {
+    local count
+    count=$(config_get '.profiles | length')
+    [[ "$count" -gt 0 ]]
+}
+
+# ============================================
+# Setup Wizard
+# ============================================
+
+show_banner() {
+    echo ""
+    echo -e "${CYAN}╔════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║           MM 配置向导                   ║${NC}"
+    echo -e "${CYAN}╚════════════════════════════════════════╝${NC}"
+    echo ""
+}
+
+setup_main_menu() {
+    while true; do
+        show_banner
+        echo "  1) 新建配置        - 选择服务商、设置 Key、选择模板"
+        echo "  2) 管理 API Key    - 查看/设置/申请 Key"
+        echo "  3) 切换配置        - 在已有配置间切换"
+        echo "  4) 启动选项        - 跳过权限确认等全局设置"
+        echo "  5) 查看当前状态    - 显示当前配置"
+        echo ""
+        read -p "请选择 [1-5, q 退出]: " choice
+
+        case "$choice" in
+            1) setup_new_profile ;;
+            2) setup_manage_keys ;;
+            3) setup_switch_profile ;;
+            4) setup_options ;;
+            5) show_status ;;
+            q|Q) echo "再见！"; exit 0 ;;
+            *) echo -e "${RED}无效选择${NC}" ;;
+        esac
+        echo ""
+        read -p "按回车继续..."
+    done
+}
+
+setup_new_profile() {
+    echo ""
+    echo -e "${BLUE}步骤 1: 选择服务商${NC}"
+    echo ""
+
+    local providers=("glm" "deepseek" "volcengine" "aliyun" "siliconflow" "anthropic" "openrouter")
+    local names=("智谱 GLM" "DeepSeek" "火山引擎" "阿里云百炼" "硅基流动" "Anthropic" "OpenRouter")
+    local descs=("国产领先，性价比高" "能力强，价格低" "字节豆包，稳定可靠" "通义千问，生态完整" "聚合平台，模型丰富" "Claude 官方 API" "全球模型聚合平台")
+
+    echo "  国内服务商（推荐）:"
+    for i in {0..4}; do
+        printf "    %d) %-12s %s\n" "$((i+1))" "${names[$i]}" "${descs[$i]}"
+    done
+    echo ""
+    echo "  国外服务商:"
+    for i in {5..6}; do
+        printf "    %d) %-12s %s\n" "$((i+1))" "${names[$i]}" "${descs[$i]}"
+    done
+    echo ""
+
+    read -p "请选择 [1-7]: " provider_choice
+    local provider_idx=$((provider_choice - 1))
+    local provider="${providers[$provider_idx]}"
+
+    if [[ -z "$provider" ]]; then
+        echo -e "${RED}无效选择${NC}"
+        return
+    fi
+
+    local provider_name
+    provider_name=$(config_get ".providers.$provider.name")
+
+    # Check API Key
+    echo ""
+    echo -e "${BLUE}步骤 2: 设置 API Key${NC}"
+    echo ""
+
+    if get_api_key "$provider" >/dev/null 2>&1; then
+        echo -e "${GREEN}✓ $provider_name API Key 已配置${NC}"
+    else
+        local apply_url
+        apply_url=$(config_get ".providers.$provider.apply_url")
+
+        echo -e "${YELLOW}$provider_name API Key: 未配置${NC}"
+        echo ""
+        echo "  申请地址: $apply_url"
+        echo ""
+        echo "  [O] 打开网页申请    [E] 我已有 Key    [S] 跳过"
+        echo ""
+        read -p "请选择: " key_choice
+
+        case "$key_choice" in
+            o|O)
+                if command -v open &>/dev/null; then
+                    open "$apply_url"
+                elif command -v xdg-open &>/dev/null; then
+                    xdg-open "$apply_url"
+                else
+                    echo "请手动打开: $apply_url"
+                fi
+                echo ""
+                read -p "获取到 Key 后按回车继续..."
+                setup_new_profile  # Restart this step
+                return
+                ;;
+            e|E)
+                local env_var
+                env_var=$(config_get ".providers.$provider.api_key_env")
+                read -p "请输入 API Key: " -r api_key
+                if [[ -n "$api_key" ]]; then
+                    export "$env_var"="$api_key"
+                    echo ""
+                    read -p "是否永久保存到 ~/.zshrc？[Y/n]: " save_choice
+                    if [[ ! "$save_choice" =~ ^[Nn]$ ]]; then
+                        echo "export $env_var='$api_key'" >> ~/.zshrc
+                        echo -e "${GREEN}✓ 已添加到 ~/.zshrc${NC}"
+                    fi
+                fi
+                ;;
+            s|S)
+                echo -e "${YELLOW}已跳过，可稍后运行 'mm setup' 配置${NC}"
+                return
+                ;;
+        esac
+    fi
+
+    # Select preset
+    echo ""
+    echo -e "${BLUE}步骤 3: 选择性能模式${NC}"
+    echo ""
+    echo "  1) 快速 (Fast)      - 响应快，价格低，适合日常对话"
+    echo "  2) 均衡 (Balanced)  - 性价比最优，推荐大多数场景"
+    echo "  3) 强大 (Powerful)  - 最强能力，适合复杂任务"
+    echo ""
+    read -p "请选择 [1-3, 默认 2]: " preset_choice
+    preset_choice="${preset_choice:-2}"
+
+    local preset_name
+    case "$preset_choice" in
+        1) preset_name="fast" ;;
+        2) preset_name="balanced" ;;
+        3) preset_name="powerful" ;;
+        *) preset_name="balanced" ;;
+    esac
+
+    # Create profile
+    local profile_name="${provider}-${preset_name}"
+    local haiku sonnet opus
+    haiku=$(config_get ".providers.$provider.presets.$preset_name.haiku")
+    sonnet=$(config_get ".providers.$provider.presets.$preset_name.sonnet")
+    opus=$(config_get ".providers.$provider.presets.$preset_name.opus")
+
+    config_set ".profiles.$profile_name = {
+        \"provider\": \"$provider\",
+        \"preset\": \"$preset_name\",
+        \"haiku\": \"$haiku\",
+        \"sonnet\": \"$sonnet\",
+        \"opus\": \"$opus\"
+    }"
+    config_set ".active_profile = \"$profile_name\""
+
+    echo ""
+    echo -e "${GREEN}✓ 配置完成！${NC}"
+    echo ""
+    echo "  当前配置: $provider_name ($preset_name)"
+    echo ""
+    echo "  运行 ${CYAN}mm${NC} 开始使用"
+}
+
+setup_manage_keys() {
+    echo ""
+    echo -e "${BLUE}API Key 配置状态${NC}"
+    echo ""
+
+    local providers=("glm" "deepseek" "volcengine" "aliyun" "siliconflow" "anthropic" "openrouter")
+
+    for p in "${providers[@]}"; do
+        local name env_var apply_url
+        name=$(config_get ".providers.$p.name")
+        env_var=$(config_get ".providers.$p.api_key_env")
+        apply_url=$(config_get ".providers.$p.apply_url")
+
+        if [[ -n "${!env_var:-}" ]]; then
+            echo -e "  ${GREEN}✓${NC} $name ${GREEN}已配置${NC}"
+        else
+            echo -e "  ${RED}✗${NC} $name ${RED}未配置${NC}"
+        fi
+    done
+
+    echo ""
+    echo "  [S] 设置 Key    [O] 打开申请页面    [回车] 返回"
+    echo ""
+    read -p "请选择: " action
+
+    case "$action" in
+        s|S)
+            echo ""
+            echo "选择要设置的服务商:"
+            for i in "${!providers[@]}"; do
+                printf "  %d) %s\n" "$((i+1))" "$(config_get ".providers.${providers[$i]}.name")"
+            done
+            read -p "请选择 [1-7]: " idx
+            local provider="${providers[$((idx-1))]}"
+            local env_var
+            env_var=$(config_get ".providers.$provider.api_key_env")
+            read -p "请输入 API Key: " -r api_key
+            if [[ -n "$api_key" ]]; then
+                export "$env_var"="$api_key"
+                read -p "是否永久保存到 ~/.zshrc？[Y/n]: " save_choice
+                if [[ ! "$save_choice" =~ ^[Nn]$ ]]; then
+                    echo "export $env_var='$api_key'" >> ~/.zshrc
+                    echo -e "${GREEN}✓ 已添加到 ~/.zshrc${NC}"
+                fi
+            fi
+            ;;
+        o|O)
+            echo ""
+            echo "选择要打开的服务商:"
+            for i in "${!providers[@]}"; do
+                printf "  %d) %s\n" "$((i+1))" "$(config_get ".providers.${providers[$i]}.name")"
+            done
+            read -p "请选择 [1-7]: " idx
+            local provider="${providers[$((idx-1))]}"
+            local apply_url
+            apply_url=$(config_get ".providers.$provider.apply_url")
+            if command -v open &>/dev/null; then
+                open "$apply_url"
+            elif command -v xdg-open &>/dev/null; then
+                xdg-open "$apply_url"
+            fi
+            ;;
+    esac
+}
+
+setup_switch_profile() {
+    echo ""
+    echo -e "${BLUE}切换配置${NC}"
+    echo ""
+
+    local profiles
+    profiles=($(config_get '.profiles | keys[]'))
+
+    if [[ ${#profiles[@]} -eq 0 ]]; then
+        echo -e "${YELLOW}暂无配置，请先新建配置${NC}"
+        return
+    fi
+
+    local active
+    active=$(config_get '.active_profile')
+
+    local i=1
+    for p in "${profiles[@]}"; do
+        local provider preset
+        provider=$(config_get ".profiles.$p.provider")
+        preset=$(config_get ".profiles.$p.preset")
+        local marker=""
+        [[ "$p" == "$active" ]] && marker=" ${GREEN}(当前)${NC}"
+        echo -e "  $i) $p$marker"
+        ((i++))
+    done
+    echo ""
+
+    read -p "请选择 [1-${#profiles[@]}]: " idx
+    local profile="${profiles[$((idx-1))]}"
+    config_set ".active_profile = \"$profile\""
+    echo -e "${GREEN}✓ 已切换到: $profile${NC}"
+}
+
+setup_options() {
+    echo ""
+    echo -e "${BLUE}启动选项${NC}"
+    echo ""
+
+    local skip
+    skip=$(config_get '.options.skip_permissions')
+
+    echo "  跳过权限确认"
+    echo ""
+    echo "  启用后，Claude Code 将自动执行命令，无需每次确认"
+    echo "  适合信任 Claude 的进阶用户"
+    echo ""
+
+    if [[ "$skip" == "true" ]]; then
+        echo -e "  当前状态: ${GREEN}已启用${NC}"
+    else
+        echo -e "  当前状态: ${YELLOW}未启用${NC}"
+    fi
+    echo ""
+
+    read -p "是否启用？[y/N]: " enable
+    if [[ "$enable" =~ ^[Yy]$ ]]; then
+        config_set '.options.skip_permissions = true'
+        echo -e "${GREEN}✓ 已启用${NC}"
+    else
+        config_set '.options.skip_permissions = false'
+        echo -e "${GREEN}✓ 已禁用${NC}"
+    fi
+}
+
+show_status() {
+    echo ""
+    echo -e "${BLUE}当前配置状态${NC}"
+    echo ""
+
+    local active
+    active=$(config_get '.active_profile')
+
+    if [[ -z "$active" ]]; then
+        echo -e "  ${YELLOW}暂无活跃配置${NC}"
+        echo ""
+        echo "  运行 ${CYAN}mm setup${NC} 创建配置"
+        return
+    fi
+
+    local provider preset haiku sonnet opus
+    provider=$(config_get ".profiles.$active.provider")
+    preset=$(config_get ".profiles.$active.preset")
+    haiku=$(config_get ".profiles.$active.haiku")
+    sonnet=$(config_get ".profiles.$active.sonnet")
+    opus=$(config_get ".profiles.$active.opus")
+
+    local provider_name
+    provider_name=$(config_get ".providers.$provider.name")
+
+    echo "  活跃配置: $active"
+    echo "  服务商:   $provider_name"
+    echo "  性能模式: $preset"
+    echo ""
+    echo "  模型配置:"
+    echo "    haiku:  $haiku"
+    echo "    sonnet: $sonnet"
+    echo "    opus:   $opus"
+    echo ""
+
+    local skip
+    skip=$(config_get '.options.skip_permissions')
+    if [[ "$skip" == "true" ]]; then
+        echo -e "  启动选项: ${GREEN}跳过权限确认${NC}"
+    fi
+}
+
+# ============================================
+# Launch Functions
+# ============================================
+
+select_and_launch() {
+    local profiles
+    profiles=($(config_get '.profiles | keys[]'))
+
+    if [[ ${#profiles[@]} -eq 0 ]]; then
+        echo -e "${YELLOW}暂无配置，请先运行 'mm setup' 创建配置${NC}"
+        return
+    fi
+
+    local active
+    active=$(config_get '.active_profile')
+
+    # If only one profile, use it directly
+    if [[ ${#profiles[@]} -eq 1 ]]; then
+        launch_profile "${profiles[0]}"
+        return
+    fi
+
+    # Select profile
+    echo ""
+    echo -e "${BLUE}选择配置:${NC}"
+    echo ""
+
+    local i=1
+    for p in "${profiles[@]}"; do
+        local marker=""
+        [[ "$p" == "$active" ]] && marker=" ${GREEN}(当前)${NC}"
+        echo -e "  $i) $p$marker"
+        ((i++))
+    done
+    echo ""
+
+    read -p "请选择 [1-${#profiles[@]}, 回车使用当前]: " idx
+    echo ""
+
+    local profile
+    if [[ -z "$idx" ]]; then
+        profile="$active"
+    else
+        profile="${profiles[$((idx-1))]}"
+    fi
+
+    launch_profile "$profile" "$@"
+}
+
+launch_profile() {
+    local profile="$1"
+    shift 2>/dev/null || true
+
+    local provider haiku sonnet opus base_url api_key
+    provider=$(config_get ".profiles.$profile.provider")
+    haiku=$(config_get ".profiles.$profile.haiku")
+    sonnet=$(config_get ".profiles.$profile.sonnet")
+    opus=$(config_get ".profiles.$profile.opus")
+    base_url=$(config_get ".providers.$provider.base_url")
+
+    api_key=$(get_api_key "$provider")
+    if [[ -z "$api_key" ]]; then
+        local provider_name
+        provider_name=$(config_get ".providers.$provider.name")
+        echo -e "${RED}错误: $provider_name API Key 未配置${NC}"
+        echo ""
+        echo "运行 ${CYAN}mm setup${NC} 进行配置"
+        exit 1
+    fi
+
+    config_set ".active_profile = \"$profile\""
+
+    local provider_name
+    provider_name=$(config_get ".providers.$provider.name")
+    echo -e "${GREEN}✓ 已切换到: $provider_name${NC}"
+    echo ""
+
+    # Export environment variables
+    export ANTHROPIC_BASE_URL="$base_url"
+    export ANTHROPIC_AUTH_TOKEN="$api_key"
+    export ANTHROPIC_DEFAULT_HAIKU_MODEL="$haiku"
+    export ANTHROPIC_DEFAULT_SONNET_MODEL="$sonnet"
+    export ANTHROPIC_DEFAULT_OPUS_MODEL="$opus"
+
+    # Build claude args
+    local claude_args=()
+    local skip
+    skip=$(config_get '.options.skip_permissions')
+    if [[ "$skip" == "true" ]]; then
+        claude_args+=("--dangerously-skip-permissions")
+    fi
+    claude_args+=("$@")
+
+    exec claude "${claude_args[@]}"
+}
+
+# ============================================
+# Main
+# ============================================
+
+show_help() {
+    cat << 'HELP'
+MM - Claude Code 简易启动器
+
+用法:
+  mm              交互式选择配置并启动
+  mm <profile>    直接使用指定配置启动
+  mm setup        配置向导
+  mm help         显示帮助
+
+配置文件: ~/.mukits/config.json
+HELP
+}
+
+main() {
+    check_jq
+    init_config
+
+    local command="${1:-}"
+
+    case "$command" in
+        "")
+            # No args: check if setup needed, then launch
+            if ! has_profiles || ! has_any_api_key; then
+                echo -e "${YELLOW}首次使用，请先配置${NC}"
+                setup_main_menu
+                return
+            fi
+            select_and_launch "$@"
+            ;;
+
+        setup)
+            setup_main_menu
+            ;;
+
+        help|-h|--help)
+            show_help
+            ;;
+
+        *)
+            # Treat as profile name
+            if config_get ".profiles.$command" >/dev/null 2>&1; then
+                launch_profile "$@"
+            else
+                echo -e "${RED}错误: 未知配置 '$command'${NC}"
+                echo ""
+                echo "运行 ${CYAN}mm setup${NC} 创建配置"
+                exit 1
+            fi
+            ;;
+    esac
+}
+
+main "$@"

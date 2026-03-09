@@ -1,22 +1,11 @@
 #!/usr/bin/env bash
 # mm - Claude Code 简易启动器
-# Usage: mm [profile] [-- <claude args>]
 
 set -euo pipefail
 
 # Config paths
 MM_CONFIG_DIR="${MM_CONFIG_DIR:-$HOME/.mukits}"
 MM_CONFIG_FILE="$MM_CONFIG_DIR/config.json"
-MM_VERSION_FILE="$MM_CONFIG_DIR/.version"
-MM_LAST_CHECK_FILE="$MM_CONFIG_DIR/.last_check"
-
-# Version info
-MM_VERSION="${MM_VERSION:-1.0.0}"
-MM_VERSION_URL="https://raw.githubusercontent.com/CasperMoo/MUKits/main/version.json"
-MM_INSTALL_URL="https://raw.githubusercontent.com/CasperMoo/MUKits/main/install.sh"
-
-# Check interval: 24 hours
-CHECK_INTERVAL=$((24 * 60 * 60))
 
 # Colors
 RED='\033[0;31m'
@@ -24,125 +13,38 @@ GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
-BOLD='\033[1m'
 NC='\033[0m'
 
-# Default providers config
+# Default providers
 DEFAULT_PROVIDERS='{
-  "glm": {
-    "name": "智谱 GLM",
-    "base_url": "https://open.bigmodel.cn/api/paas/v4/",
-    "api_key_env": "GLM_API_KEY",
-    "apply_url": "https://open.bigmodel.cn/",
-    "presets": {
-      "fast": { "haiku": "glm-4-flash", "sonnet": "glm-4-flash", "opus": "glm-4-air" },
-      "balanced": { "haiku": "glm-4-air", "sonnet": "glm-4", "opus": "glm-4" },
-      "powerful": { "haiku": "glm-4", "sonnet": "glm-4-plus", "opus": "glm-4-plus" }
-    }
-  },
-  "deepseek": {
-    "name": "DeepSeek",
-    "base_url": "https://api.deepseek.com/anthropic",
-    "api_key_env": "DEEPSEEK_API_KEY",
-    "apply_url": "https://platform.deepseek.com/",
-    "presets": {
-      "fast": { "haiku": "deepseek-chat", "sonnet": "deepseek-chat", "opus": "deepseek-chat" },
-      "balanced": { "haiku": "deepseek-chat", "sonnet": "deepseek-v3", "opus": "deepseek-v3" },
-      "powerful": { "haiku": "deepseek-v3", "sonnet": "deepseek-v3", "opus": "deepseek-v3" }
-    }
-  },
-  "volcengine": {
-    "name": "火山引擎",
-    "base_url": "https://ark.cn-beijing.volces.com/api/v3/",
-    "api_key_env": "VOLCENGINE_API_KEY",
-    "apply_url": "https://console.volcengine.com/ark",
-    "presets": {
-      "fast": { "haiku": "doubao-pro-32k", "sonnet": "doubao-pro-32k", "opus": "doubao-pro-32k" },
-      "balanced": { "haiku": "doubao-pro-32k", "sonnet": "doubao-pro-32k", "opus": "doubao-pro-256k" },
-      "powerful": { "haiku": "doubao-pro-256k", "sonnet": "doubao-pro-256k", "opus": "doubao-pro-256k" }
-    }
-  },
-  "aliyun": {
-    "name": "阿里云百炼",
-    "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    "api_key_env": "ALIYUN_API_KEY",
-    "apply_url": "https://bailian.console.aliyun.com/",
-    "presets": {
-      "fast": { "haiku": "qwen-turbo", "sonnet": "qwen-turbo", "opus": "qwen-plus" },
-      "balanced": { "haiku": "qwen-plus", "sonnet": "qwen-plus", "opus": "qwen-max" },
-      "powerful": { "haiku": "qwen-max", "sonnet": "qwen-max", "opus": "qwen-max" }
-    }
-  },
-  "siliconflow": {
-    "name": "硅基流动",
-    "base_url": "https://api.siliconflow.cn/v1",
-    "api_key_env": "SILICONFLOW_API_KEY",
-    "apply_url": "https://cloud.siliconflow.cn/",
-    "presets": {
-      "fast": { "haiku": "Qwen/Qwen2.5-7B-Instruct", "sonnet": "Qwen/Qwen2.5-7B-Instruct", "opus": "Qwen/Qwen2.5-32B-Instruct" },
-      "balanced": { "haiku": "Qwen/Qwen2.5-32B-Instruct", "sonnet": "Qwen/Qwen2.5-72B-Instruct", "opus": "Qwen/Qwen2.5-72B-Instruct" },
-      "powerful": { "haiku": "deepseek-ai/DeepSeek-V3", "sonnet": "deepseek-ai/DeepSeek-V3", "opus": "deepseek-ai/DeepSeek-V3" }
-    }
-  },
-  "anthropic": {
-    "name": "Anthropic",
-    "base_url": "https://api.anthropic.com",
-    "api_key_env": "ANTHROPIC_API_KEY",
-    "apply_url": "https://console.anthropic.com/",
-    "presets": {
-      "fast": { "haiku": "claude-haiku-4-20250514", "sonnet": "claude-haiku-4-20250514", "opus": "claude-sonnet-4-20250514" },
-      "balanced": { "haiku": "claude-haiku-4-20250514", "sonnet": "claude-sonnet-4-20250514", "opus": "claude-sonnet-4-20250514" },
-      "powerful": { "haiku": "claude-sonnet-4-20250514", "sonnet": "claude-opus-4-20250514", "opus": "claude-opus-4-20250514" }
-    }
-  },
-  "openrouter": {
-    "name": "OpenRouter",
-    "base_url": "https://openrouter.ai/api/v1",
-    "api_key_env": "OPENROUTER_API_KEY",
-    "apply_url": "https://openrouter.ai/",
-    "presets": {
-      "fast": { "haiku": "anthropic/claude-haiku-4", "sonnet": "anthropic/claude-haiku-4", "opus": "anthropic/claude-sonnet-4" },
-      "balanced": { "haiku": "anthropic/claude-haiku-4", "sonnet": "anthropic/claude-sonnet-4", "opus": "anthropic/claude-sonnet-4" },
-      "powerful": { "haiku": "anthropic/claude-sonnet-4", "sonnet": "anthropic/claude-opus-4", "opus": "anthropic/claude-opus-4" }
-    }
-  }
+  "glm": {"name": "智谱 GLM", "base_url": "https://open.bigmodel.cn/api/paas/v4/", "api_key_env": "GLM_API_KEY", "apply_url": "https://open.bigmodel.cn/",
+    "presets": {"fast": {"haiku": "glm-4-flash", "sonnet": "glm-4-flash", "opus": "glm-4-air"}, "balanced": {"haiku": "glm-4-air", "sonnet": "glm-4", "opus": "glm-4"}, "powerful": {"haiku": "glm-4", "sonnet": "glm-4-plus", "opus": "glm-4-plus"}}},
+  "deepseek": {"name": "DeepSeek", "base_url": "https://api.deepseek.com/anthropic", "api_key_env": "DEEPSEEK_API_KEY", "apply_url": "https://platform.deepseek.com/",
+    "presets": {"fast": {"haiku": "deepseek-chat", "sonnet": "deepseek-chat", "opus": "deepseek-chat"}, "balanced": {"haiku": "deepseek-chat", "sonnet": "deepseek-v3", "opus": "deepseek-v3"}, "powerful": {"haiku": "deepseek-v3", "sonnet": "deepseek-v3", "opus": "deepseek-v3"}}},
+  "volcengine": {"name": "火山引擎", "base_url": "https://ark.cn-beijing.volces.com/api/v3/", "api_key_env": "VOLCENGINE_API_KEY", "apply_url": "https://console.volcengine.com/ark",
+    "presets": {"fast": {"haiku": "doubao-pro-32k", "sonnet": "doubao-pro-32k", "opus": "doubao-pro-32k"}, "balanced": {"haiku": "doubao-pro-32k", "sonnet": "doubao-pro-32k", "opus": "doubao-pro-256k"}, "powerful": {"haiku": "doubao-pro-256k", "sonnet": "doubao-pro-256k", "opus": "doubao-pro-256k"}}},
+  "aliyun": {"name": "阿里云百炼", "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1", "api_key_env": "ALIYUN_API_KEY", "apply_url": "https://bailian.console.aliyun.com/",
+    "presets": {"fast": {"haiku": "qwen-turbo", "sonnet": "qwen-turbo", "opus": "qwen-plus"}, "balanced": {"haiku": "qwen-plus", "sonnet": "qwen-plus", "opus": "qwen-max"}, "powerful": {"haiku": "qwen-max", "sonnet": "qwen-max", "opus": "qwen-max"}}},
+  "siliconflow": {"name": "硅基流动", "base_url": "https://api.siliconflow.cn/v1", "api_key_env": "SILICONFLOW_API_KEY", "apply_url": "https://cloud.siliconflow.cn/",
+    "presets": {"fast": {"haiku": "Qwen/Qwen2.5-7B-Instruct", "sonnet": "Qwen/Qwen2.5-7B-Instruct", "opus": "Qwen/Qwen2.5-32B-Instruct"}, "balanced": {"haiku": "Qwen/Qwen2.5-32B-Instruct", "sonnet": "Qwen/Qwen2.5-72B-Instruct", "opus": "Qwen/Qwen2.5-72B-Instruct"}, "powerful": {"haiku": "deepseek-ai/DeepSeek-V3", "sonnet": "deepseek-ai/DeepSeek-V3", "opus": "deepseek-ai/DeepSeek-V3"}}},
+  "anthropic": {"name": "Anthropic", "base_url": "https://api.anthropic.com", "api_key_env": "ANTHROPIC_API_KEY", "apply_url": "https://console.anthropic.com/",
+    "presets": {"fast": {"haiku": "claude-haiku-4-20250514", "sonnet": "claude-haiku-4-20250514", "opus": "claude-sonnet-4-20250514"}, "balanced": {"haiku": "claude-haiku-4-20250514", "sonnet": "claude-sonnet-4-20250514", "opus": "claude-sonnet-4-20250514"}, "powerful": {"haiku": "claude-sonnet-4-20250514", "sonnet": "claude-opus-4-20250514", "opus": "claude-opus-4-20250514"}}},
+  "openrouter": {"name": "OpenRouter", "base_url": "https://openrouter.ai/api/v1", "api_key_env": "OPENROUTER_API_KEY", "apply_url": "https://openrouter.ai/",
+    "presets": {"fast": {"haiku": "anthropic/claude-haiku-4", "sonnet": "anthropic/claude-haiku-4", "opus": "anthropic/claude-sonnet-4"}, "balanced": {"haiku": "anthropic/claude-haiku-4", "sonnet": "anthropic/claude-sonnet-4", "opus": "anthropic/claude-sonnet-4"}, "powerful": {"haiku": "anthropic/claude-sonnet-4", "sonnet": "anthropic/claude-opus-4", "opus": "anthropic/claude-opus-4"}}}
 }'
 
-DEFAULT_CONFIG="{
-  \"providers\": $DEFAULT_PROVIDERS,
-  \"profiles\": {},
-  \"active_profile\": \"\",
-  \"options\": { \"skip_permissions\": false }
-}"
+DEFAULT_CONFIG="{\"providers\": $DEFAULT_PROVIDERS, \"profiles\": {}, \"active_profile\": \"\", \"options\": {\"skip_permissions\": false}}"
 
-# ============================================
-# Utility Functions
-# ============================================
-
+# Utility
 check_jq() {
     if ! command -v jq &>/dev/null; then
         echo -e "${RED}错误: 需要安装 jq${NC}" >&2
-        echo "安装: brew install jq (macOS) 或 apt install jq (Linux)" >&2
         exit 1
     fi
 }
 
-check_curl() {
-    if ! command -v curl &>/dev/null; then
-        echo -e "${RED}错误: 需要安装 curl${NC}" >&2
-        exit 1
-    fi
-}
-
-config_get() {
-    jq -r "$1 // empty" "$MM_CONFIG_FILE"
-}
-
-config_set() {
-    local tmp
-    tmp=$(mktemp)
-    jq "$1" "$MM_CONFIG_FILE" > "$tmp" && mv "$tmp" "$MM_CONFIG_FILE"
-}
+config_get() { jq -r "$1 // empty" "$MM_CONFIG_FILE"; }
+config_set() { local tmp; tmp=$(mktemp); jq "$1" "$MM_CONFIG_FILE" > "$tmp" && mv "$tmp" "$MM_CONFIG_FILE"; }
 
 init_config() {
     if [[ ! -f "$MM_CONFIG_FILE" ]]; then
@@ -163,344 +65,76 @@ has_any_api_key() {
     local providers
     providers=$(config_get '.providers | keys[]')
     for p in $providers; do
-        if get_api_key "$p" >/dev/null 2>&1; then
-            return 0
-        fi
+        get_api_key "$p" >/dev/null 2>&1 && return 0
     done
     return 1
 }
 
 has_profiles() {
-    local count
-    count=$(config_get '.profiles | length')
-    [[ "$count" -gt 0 ]]
+    [[ $(config_get '.profiles | length') -gt 0 ]]
 }
 
-# ============================================
-# Interactive Selection (Arrow Key Navigation)
-# ============================================
-
-# Enable raw mode for key detection
-enable_raw_mode() {
-    if [[ -t 0 ]]; then
-        stty -echo -icanon time 0 min 0 2>/dev/null || true
-    fi
-}
-
-# Disable raw mode
-disable_raw_mode() {
-    if [[ -t 0 ]]; then
-        stty echo icanon 2>/dev/null || true
-    fi
-}
-
-# Read a single keypress
-read_key() {
-    local key
-    IFS= read -r -s -n1 key 2>/dev/null || return 1
-
-    # Handle escape sequences (arrow keys)
-    if [[ "$key" == $'\x1b' ]]; then
-        read -r -s -n1 -t 0.1 key 2>/dev/null || return 0
-        if [[ "$key" == "[" ]]; then
-            read -r -s -n1 -t 0.1 key 2>/dev/null || return 0
-            case "$key" in
-                A) echo "UP" ;;
-                B) echo "DOWN" ;;
-                C) echo "RIGHT" ;;
-                D) echo "LEFT" ;;
-            esac
-        fi
-        return 0
-    fi
-
-    case "$key" in
-        $'\x1b') echo "ESC" ;;
-        "") echo "ENTER" ;;
-        j) echo "DOWN" ;;
-        k) echo "UP" ;;
-        q) echo "ESC" ;;
-        *) echo "$key" ;;
-    esac
-}
-
-# Interactive select menu (use fzf if available, fallback to simple select)
-# Usage: interactive_select <prompt> <option1> <option2> ...
-# Returns selected index (0-based) or 255 if cancelled
-interactive_select() {
-    local prompt="$1"
-    shift
-    local options=("$@")
-    local num_options=${#options[@]}
-
-    # Use fzf if available
-    if command -v fzf &>/dev/null; then
-        local selection
-        selection=$(printf '%s\n' "${options[@]}" | fzf \
-            --height="$((num_options + 2))" \
-            --prompt="$prompt > " \
-            --cycle \
-            --no-info \
-            --ansi \
-            --color='pointer:2,marker:2:selected:4' \
-            --bind 'j:down,k:up' \
-            --expect=esc \
-            2>/dev/null)
-
-        local key
-        key=$(echo "$selection" | head -1)
-
-        # ESC pressed
-        if [[ "$key" == "esc" ]]; then
-            return 255
-        fi
-
-        selection=$(echo "$selection" | tail -1)
-
-        # Find index
-        for ((i=0; i<num_options; i++)); do
-            if [[ "${options[$i]}" == "$selection" ]]; then
-                return "$i"
-            fi
-        done
-        return 255
-    fi
-
-    # Fallback: simple number selection
-    if [[ -n "$prompt" ]]; then
-        echo -e "${CYAN}$prompt${NC}"
-        echo ""
-    fi
-
-    local i
-    for ((i=0; i<num_options; i++)); do
-        echo -e "  $((i+1))) ${options[$i]}"
-    done
-    echo ""
-
-    while true; do
-        read -p "请选择 [1-$num_options]: " -r choice
-
-        if [[ "$choice" =~ ^[1-9]$ ]] && [[ "$choice" -le $num_options ]]; then
-            return $((choice - 1))
-        fi
-
-        case "$choice" in
-            q|Q|x|X)
-                return 255
-                ;;
-        esac
-    done
-}
-
-# Simple yes/no prompt
-# Usage: confirm "Prompt message" [default: y/n]
-confirm() {
-    local prompt="$1"
-    local default="${2:-n}"
+# fzf selection
+fzf_select() {
+    local prompt="$1"; shift
+    local items=("$@")
 
     if command -v fzf &>/dev/null; then
-        local options=("是" "否")
-        local selection
-        selection=$(printf '%s\n' "${options[@]}" | fzf \
-            --height=4 \
+        printf '%s\n' "${items[@]}" | fzf \
+            --height=20 \
+            --layout=reverse \
             --prompt="$prompt " \
             --cycle \
             --no-info \
             --ansi \
             --color='pointer:2,marker:2:selected:4' \
             --bind 'j:down,k:up' \
-            --expect=esc \
-            2>/dev/null)
-
-        local key
-        key=$(echo "$selection" | head -1)
-        [[ "$key" == "esc" ]] && return 1
-
-        selection=$(echo "$selection" | tail -1)
-        [[ "$selection" == "是" ]] && return 0 || return 1
-    fi
-
-    # Fallback: simple y/n
-    local default_hint
-    [[ "$default" == "y" ]] && default_hint="[Y/n]" || default_hint="[y/N]"
-
-    while true; do
-        read -p "$prompt $default_hint: " -r answer
-        answer="${answer:-$default}"
-
-        case "$answer" in
-            y|Y|yes|YES) return 0 ;;
-            n|N|no|NO) return 1 ;;
-        esac
-    done
-}
-
-# ============================================
-# Version & Update Functions
-# ============================================
-
-get_local_version() {
-    if [[ -f "$MM_VERSION_FILE" ]]; then
-        cat "$MM_VERSION_FILE"
+            --header="↑↓/jk 选择 | 回车确认 | ESC 取消" \
+            2>/dev/null || echo ""
     else
-        echo "$MM_VERSION"
-    fi
-}
-
-save_local_version() {
-    echo "$1" > "$MM_VERSION_FILE"
-}
-
-should_check_update() {
-    if [[ ! -f "$MM_LAST_CHECK_FILE" ]]; then
-        return 0
-    fi
-    local last_check now elapsed
-    last_check=$(cat "$MM_LAST_CHECK_FILE")
-    now=$(date +%s)
-    elapsed=$((now - last_check))
-    [[ $elapsed -ge $CHECK_INTERVAL ]]
-}
-
-save_check_time() {
-    date +%s > "$MM_LAST_CHECK_FILE"
-}
-
-version_lt() {
-    local v1="$1" v2="$2"
-    v1="${v1#v}"; v2="${v2#v}"
-    local IFS=.
-    read -ra v1_parts <<< "$v1"
-    read -ra v2_parts <<< "$v2"
-    for i in "${!v1_parts[@]}"; do
-        local p1="${v1_parts[$i]:-0}" p2="${v2_parts[$i]:-0}"
-        p1="${p1%%[!0-9]*}"; p2="${p2%%[!0-9]*}"
-        [[ "$p1" -lt "$p2" ]] && return 0
-        [[ "$p1" -gt "$p2" ]] && return 1
-    done
-    return 1
-}
-
-fetch_remote_version() {
-    local response
-    response=$(curl -sL --connect-timeout 5 --max-time 10 "$MM_VERSION_URL" 2>/dev/null) || return 1
-    echo "$response" | jq -r '.version // empty' 2>/dev/null
-}
-
-fetch_changelog() {
-    local response
-    response=$(curl -sL --connect-timeout 5 --max-time 10 "$MM_VERSION_URL" 2>/dev/null) || return 1
-    echo "$response" | jq -r '.changelog[]? // empty' 2>/dev/null
-}
-
-check_for_update() {
-    local check_only="${1:-false}"
-    if ! should_check_update && [[ "$check_only" != "true" ]]; then
-        return 1
-    fi
-    check_curl
-    local remote_version
-    remote_version=$(fetch_remote_version)
-    [[ -z "$remote_version" ]] && return 1
-    save_check_time
-    local local_version
-    local_version=$(get_local_version)
-    if version_lt "$local_version" "$remote_version"; then
-        echo "$remote_version"
-        return 0
-    fi
-    return 1
-}
-
-show_update_prompt() {
-    local new_version="$1"
-    local local_version
-    local_version=$(get_local_version)
-
-    echo ""
-    echo -e "${CYAN}╭─────────────────────────────────────────╮${NC}"
-    echo -e "${CYAN}│  发现新版本: v$new_version (当前 v$local_version)    │${NC}"
-    echo -e "${CYAN}╰─────────────────────────────────────────╯${NC}"
-    echo ""
-
-    local changelog
-    changelog=$(fetch_changelog)
-    if [[ -n "$changelog" ]]; then
-        echo "  更新内容:"
-        while IFS= read -r line; do
-            echo -e "  ${GREEN}•${NC} $line"
-        done <<< "$changelog"
+        echo -e "${CYAN}$prompt${NC}"
+        local i
+        for ((i=0; i<${#items[@]}; i++)); do
+            echo "  $((i+1))) ${items[$i]}"
+        done
         echo ""
-    fi
-
-    if confirm "是否更新？"; then
-        do_update
-    else
-        echo -e "${YELLOW}已跳过更新${NC}"
-    fi
-}
-
-do_update() {
-    echo ""
-    echo -e "${BLUE}正在更新...${NC}"
-    local tmp_script
-    tmp_script=$(mktemp)
-    if curl -sL --connect-timeout 10 --max-time 30 "$MM_INSTALL_URL" -o "$tmp_script" 2>/dev/null; then
-        if bash "$tmp_script" --update; then
-            rm -f "$tmp_script"
-            echo ""
-            echo -e "${GREEN}✓ 更新完成！${NC}"
-            echo ""
-            echo "  重新运行 ${CYAN}mm${NC} 以使用新版本"
-            exit 0
-        else
-            rm -f "$tmp_script"
-            echo -e "${RED}✗ 更新失败${NC}"
-            echo "  请手动运行: curl -sL $MM_INSTALL_URL | bash"
-            return 1
-        fi
-    else
-        rm -f "$tmp_script"
-        echo -e "${RED}✗ 无法下载更新脚本${NC}"
-        return 1
+        while true; do
+            read -p "请选择 [1-${#items[@]}]: " -r choice
+            [[ "$choice" =~ ^[1-9][0-9]*$ ]] && [[ "$choice" -le ${#items[@]} ]] && { echo "${items[$((choice-1))]}"; return; }
+            [[ "$choice" =~ ^[qQxX]$ ]] && { echo ""; return; }
+        done
     fi
 }
 
-# ============================================
-# Setup Wizard
-# ============================================
-
-show_banner() {
+# Setup wizard
+setup_wizard() {
     echo ""
     echo -e "${CYAN}╔════════════════════════════════════════╗${NC}"
     echo -e "${CYAN}║           MM 配置向导                   ║${NC}"
     echo -e "${CYAN}╚════════════════════════════════════════╝${NC}"
-    echo ""
-}
-
-setup_main_menu() {
-    local options=("新建配置      - 选择服务商、设置 Key、选择模板"
-                   "管理 API Key  - 查看/设置/申请 Key"
-                   "切换配置      - 在已有配置间切换"
-                   "启动选项      - 跳过权限确认等全局设置"
-                   "查看当前状态  - 显示当前配置"
-                   "退出")
 
     while true; do
-        show_banner
+        echo ""
+        local action
+        action=$(fzf_select "请选择操作:" \
+            "新建配置 - 选择服务商、设置 Key、选择模板" \
+            "管理 API Key - 查看/设置/申请 Key" \
+            "切换配置 - 在已有配置间切换" \
+            "启动选项 - 跳过权限确认等设置" \
+            "查看状态 - 显示当前配置" \
+            "退出")
 
-        interactive_select "请选择操作:" "${options[@]}"
-        local choice=$?
+        [[ -z "$action" ]] && { echo "再见！"; exit 0; }
 
-        case $choice in
-            0) setup_new_profile ;;
-            1) setup_manage_keys ;;
-            2) setup_switch_profile ;;
-            3) setup_options ;;
-            4) show_status ;;
-            5|255) echo "再见！"; exit 0 ;;
+        case "$action" in
+            新建配置*) setup_new_profile ;;
+            管理*Key*) setup_manage_keys ;;
+            切换配置*) setup_switch_profile ;;
+            启动选项*) setup_options ;;
+            查看状态*) show_status ;;
+            退出) echo "再见！"; exit 0 ;;
         esac
+
         echo ""
         echo -e "${BLUE}按回车继续...${NC}"
         read -r
@@ -510,136 +144,103 @@ setup_main_menu() {
 setup_new_profile() {
     echo ""
     echo -e "${BLUE}步骤 1: 选择服务商${NC}"
-    echo ""
 
-    local provider_names=("智谱 GLM" "DeepSeek" "火山引擎" "阿里云百炼" "硅基流动" "Anthropic" "OpenRouter")
-    local provider_descs=("国产领先，性价比高" "能力强，价格低" "字节豆包，稳定可靠" "通义千问，生态完整" "聚合平台，模型丰富" "Claude 官方 API" "全球模型聚合平台")
-    local provider_ids=("glm" "deepseek" "volcengine" "aliyun" "siliconflow" "anthropic" "openrouter")
+    local provider
+    provider=$(fzf_select "选择服务商:" \
+        "智谱 GLM - 国产领先，性价比高" \
+        "DeepSeek - 能力强，价格低" \
+        "火山引擎 - 字节豆包，稳定可靠" \
+        "阿里云百炼 - 通义千问，生态完整" \
+        "硅基流动 - 聚合平台，模型丰富" \
+        "Anthropic - Claude 官方 API" \
+        "OpenRouter - 全球模型聚合平台")
 
-    # Build options with descriptions
-    local options=()
-    local i
-    for i in "${!provider_names[@]}"; do
-        options+=("${provider_names[$i]} - ${provider_descs[$i]}")
-    done
+    [[ -z "$provider" ]] && { echo -e "${YELLOW}已取消${NC}"; return; }
 
-    echo -e "  ${YELLOW}国内服务商（推荐）:${NC}"
-    interactive_select "" "${options[@]:0:5}"
-    local provider_idx=$?
+    local provider_id
+    case "$provider" in
+        智谱*) provider_id="glm" ;;
+        DeepSeek*) provider_id="deepseek" ;;
+        火山*) provider_id="volcengine" ;;
+        阿里*) provider_id="aliyun" ;;
+        硅基*) provider_id="siliconflow" ;;
+        Anthropic*) provider_id="anthropic" ;;
+        OpenRouter*) provider_id="openrouter" ;;
+        *) return ;;
+    esac
 
-    if [[ $provider_idx -eq 255 ]]; then
-        echo -e "${YELLOW}已取消${NC}"
-        return
-    fi
-
-    if [[ $provider_idx -ge 5 ]]; then
-        echo -e "  ${YELLOW}国外服务商:${NC}"
-        interactive_select "" "${options[@]:5:2}"
-        local sub_idx=$?
-        if [[ $sub_idx -eq 255 ]]; then
-            echo -e "${YELLOW}已取消${NC}"
-            return
-        fi
-        provider_idx=$((5 + sub_idx))
-    fi
-
-    local provider="${provider_ids[$provider_idx]}"
     local provider_name
-    provider_name=$(config_get ".providers.$provider.name")
+    provider_name=$(config_get ".providers.$provider_id.name")
 
-    # Check API Key
     echo ""
     echo -e "${BLUE}步骤 2: 设置 API Key${NC}"
-    echo ""
 
-    if get_api_key "$provider" >/dev/null 2>&1; then
+    if get_api_key "$provider_id" >/dev/null 2>&1; then
         echo -e "${GREEN}✓ $provider_name API Key 已配置${NC}"
     else
         local apply_url
-        apply_url=$(config_get ".providers.$provider.apply_url")
-
+        apply_url=$(config_get ".providers.$provider_id.apply_url")
         echo -e "${YELLOW}$provider_name API Key: 未配置${NC}"
-        echo ""
         echo "  申请地址: $apply_url"
-        echo ""
 
-        local key_options=("打开网页申请" "我已有 Key" "跳过")
-        interactive_select "请选择:" "${key_options[@]}"
-        local key_choice=$?
+        local key_action
+        key_action=$(fzf_select "请选择:" "打开网页申请" "我已有 Key" "跳过")
 
-        case $key_choice in
-            0)
-                if command -v open &>/dev/null; then
-                    open "$apply_url"
-                elif command -v xdg-open &>/dev/null; then
-                    xdg-open "$apply_url"
-                fi
-                echo ""
-                echo -e "${BLUE}获取到 Key 后按回车继续...${NC}"
-                read -r
-                setup_new_profile
+        [[ -z "$key_action" ]] && { echo -e "${YELLOW}已取消${NC}"; return; }
+
+        case "$key_action" in
+            打开*)
+                command -v open &>/dev/null && open "$apply_url" || command -v xdg-open &>/dev/null && xdg-open "$apply_url"
+                echo -e "${BLUE}获取到 Key 后重新运行 mm setup${NC}"
                 return
                 ;;
-            1)
+            我已有*)
                 local env_var
-                env_var=$(config_get ".providers.$provider.api_key_env")
-                echo ""
+                env_var=$(config_get ".providers.$provider_id.api_key_env")
                 read -p "请输入 API Key: " -r api_key
                 if [[ -n "$api_key" ]]; then
                     export "$env_var"="$api_key"
-                    echo ""
-                    if confirm "是否永久保存到 ~/.zshrc？"; then
-                        echo "export $env_var='$api_key'" >> ~/.zshrc
-                        echo -e "${GREEN}✓ 已添加到 ~/.zshrc${NC}"
-                    fi
+                    read -p "保存到 ~/.zshrc？[Y/n]: " -r save
+                    [[ ! "$save" =~ ^[Nn]$ ]] && echo "export $env_var='$api_key'" >> ~/.zshrc && echo -e "${GREEN}✓ 已保存${NC}"
                 fi
                 ;;
-            2|255)
-                echo -e "${YELLOW}已跳过，可稍后运行 'mm setup' 配置${NC}"
+            跳过*)
+                echo -e "${YELLOW}已跳过${NC}"
                 return
                 ;;
         esac
     fi
 
-    # Select preset
     echo ""
     echo -e "${BLUE}步骤 3: 选择性能模式${NC}"
-    echo ""
 
-    local preset_options=("快速 (Fast)      - 响应快，价格低，适合日常对话"
-                          "均衡 (Balanced)  - 性价比最优，推荐大多数场景"
-                          "强大 (Powerful)  - 最强能力，适合复杂任务")
-    local preset_names=("fast" "balanced" "powerful")
+    local preset
+    preset=$(fzf_select "选择模式:" \
+        "快速 (Fast) - 响应快，价格低" \
+        "均衡 (Balanced) - 推荐大多数场景" \
+        "强大 (Powerful) - 最强能力")
 
-    interactive_select "请选择:" "${preset_options[@]}"
-    local preset_idx=$?
+    [[ -z "$preset" ]] && { echo -e "${YELLOW}已取消${NC}"; return; }
 
-    if [[ $preset_idx -eq 255 ]]; then
-        echo -e "${YELLOW}已取消${NC}"
-        return
-    fi
+    local preset_name
+    case "$preset" in
+        快速*) preset_name="fast" ;;
+        均衡*) preset_name="balanced" ;;
+        强大*) preset_name="powerful" ;;
+        *) return ;;
+    esac
 
-    local preset_name="${preset_names[$preset_idx]}"
-
-    # Create profile
-    local profile_name="${provider}-${preset_name}"
+    local profile_name="${provider_id}-${preset_name}"
     local haiku sonnet opus
-    haiku=$(config_get ".providers.$provider.presets.$preset_name.haiku")
-    sonnet=$(config_get ".providers.$provider.presets.$preset_name.sonnet")
-    opus=$(config_get ".providers.$provider.presets.$preset_name.opus")
+    haiku=$(config_get ".providers.$provider_id.presets.$preset_name.haiku")
+    sonnet=$(config_get ".providers.$provider_id.presets.$preset_name.sonnet")
+    opus=$(config_get ".providers.$provider_id.presets.$preset_name.opus")
 
-    config_set ".profiles.$profile_name = {
-        \"provider\": \"$provider\",
-        \"preset\": \"$preset_name\",
-        \"haiku\": \"$haiku\",
-        \"sonnet\": \"$sonnet\",
-        \"opus\": \"$opus\"
-    }"
+    config_set ".profiles.$profile_name = {\"provider\": \"$provider_id\", \"preset\": \"$preset_name\", \"haiku\": \"$haiku\", \"sonnet\": \"$sonnet\", \"opus\": \"$opus\"}"
     config_set ".active_profile = \"$profile_name\""
 
     echo ""
     echo -e "${GREEN}✓ 配置完成！${NC}"
-    echo ""
     echo "  当前配置: $provider_name ($preset_name)"
     echo ""
     echo "  运行 ${CYAN}mm${NC} 开始使用"
@@ -648,10 +249,8 @@ setup_new_profile() {
 setup_manage_keys() {
     echo ""
     echo -e "${BLUE}API Key 配置状态${NC}"
-    echo ""
 
     local provider_ids=("glm" "deepseek" "volcengine" "aliyun" "siliconflow" "anthropic" "openrouter")
-
     for p in "${provider_ids[@]}"; do
         local name env_var
         name=$(config_get ".providers.$p.name")
@@ -662,132 +261,47 @@ setup_manage_keys() {
             echo -e "  ${RED}✗${NC} $name ${RED}未配置${NC}"
         fi
     done
-
     echo ""
-    local actions=("设置 Key" "打开申请页面" "返回")
-    interactive_select "请选择:" "${actions[@]}"
-    local action=$?
-
-    case $action in
-        0)
-            echo ""
-            local provider_names=()
-            for p in "${provider_ids[@]}"; do
-                provider_names+=("$(config_get ".providers.$p.name")")
-            done
-            interactive_select "选择要设置的服务商:" "${provider_names[@]}"
-            local idx=$?
-            if [[ $idx -eq 255 ]]; then return; fi
-            local provider="${provider_ids[$idx]}"
-            local env_var
-            env_var=$(config_get ".providers.$provider.api_key_env")
-            echo ""
-            read -p "请输入 API Key: " -r api_key
-            if [[ -n "$api_key" ]]; then
-                export "$env_var"="$api_key"
-                if confirm "是否永久保存到 ~/.zshrc？"; then
-                    echo "export $env_var='$api_key'" >> ~/.zshrc
-                    echo -e "${GREEN}✓ 已添加到 ~/.zshrc${NC}"
-                fi
-            fi
-            ;;
-        1)
-            echo ""
-            local provider_names=()
-            for p in "${provider_ids[@]}"; do
-                provider_names+=("$(config_get ".providers.$p.name")")
-            done
-            interactive_select "选择要打开的服务商:" "${provider_names[@]}"
-            local idx=$?
-            if [[ $idx -eq 255 ]]; then return; fi
-            local provider="${provider_ids[$idx]}"
-            local apply_url
-            apply_url=$(config_get ".providers.$provider.apply_url")
-            if command -v open &>/dev/null; then
-                open "$apply_url"
-            elif command -v xdg-open &>/dev/null; then
-                xdg-open "$apply_url"
-            fi
-            ;;
-        2|255)
-            return
-            ;;
-    esac
 }
 
 setup_switch_profile() {
     echo ""
-    echo -e "${BLUE}切换配置${NC}"
-    echo ""
-
     local profiles
     profiles=($(config_get '.profiles | keys[]'))
 
-    if [[ ${#profiles[@]} -eq 0 ]]; then
-        echo -e "${YELLOW}暂无配置，请先新建配置${NC}"
-        return
-    fi
+    [[ ${#profiles[@]} -eq 0 ]] && { echo -e "${YELLOW}暂无配置${NC}"; return; }
 
-    local active
-    active=$(config_get '.active_profile')
+    local profile
+    profile=$(fzf_select "选择配置:" "${profiles[@]}")
 
-    interactive_select "选择配置:" "${profiles[@]}"
-    local idx=$?
-
-    if [[ $idx -eq 255 ]]; then
-        echo -e "${YELLOW}已取消${NC}"
-        return
-    fi
-
-    local profile="${profiles[$idx]}"
-    config_set ".active_profile = \"$profile\""
-    echo -e "${GREEN}✓ 已切换到: $profile${NC}"
+    [[ -n "$profile" ]] && { config_set ".active_profile = \"$profile\""; echo -e "${GREEN}✓ 已切换到: $profile${NC}"; }
 }
 
 setup_options() {
     echo ""
     echo -e "${BLUE}启动选项${NC}"
-    echo ""
-
     local skip
     skip=$(config_get '.options.skip_permissions')
+    echo -e "  跳过权限确认: $([[ "$skip" == "true" ]] && echo -e "${GREEN}已启用${NC}" || echo -e "${YELLOW}未启用${NC}")"
 
-    echo "  跳过权限确认"
-    echo ""
-    echo "  启用后，Claude Code 将自动执行命令，无需每次确认"
-    echo "  适合信任 Claude 的进阶用户"
-    echo ""
+    local choice
+    choice=$(fzf_select "跳过权限确认:" "启用" "禁用")
 
-    if [[ "$skip" == "true" ]]; then
-        echo -e "  当前状态: ${GREEN}已启用${NC}"
-    else
-        echo -e "  当前状态: ${YELLOW}未启用${NC}"
-    fi
-    echo ""
+    [[ -z "$choice" ]] && return
 
-    if confirm "是否启用？"; then
-        config_set '.options.skip_permissions = true'
-        echo -e "${GREEN}✓ 已启用${NC}"
-    else
-        config_set '.options.skip_permissions = false'
-        echo -e "${GREEN}✓ 已禁用${NC}"
-    fi
+    case "$choice" in
+        启用) config_set '.options.skip_permissions = true'; echo -e "${GREEN}✓ 已启用${NC}" ;;
+        禁用) config_set '.options.skip_permissions = false'; echo -e "${GREEN}✓ 已禁用${NC}" ;;
+    esac
 }
 
 show_status() {
     echo ""
     echo -e "${BLUE}当前配置状态${NC}"
-    echo ""
-
     local active
     active=$(config_get '.active_profile')
 
-    if [[ -z "$active" ]]; then
-        echo -e "  ${YELLOW}暂无活跃配置${NC}"
-        echo ""
-        echo "  运行 ${CYAN}mm setup${NC} 创建配置"
-        return
-    fi
+    [[ -z "$active" ]] && { echo -e "  ${YELLOW}暂无活跃配置${NC}"; return; }
 
     local provider preset haiku sonnet opus provider_name
     provider=$(config_get ".profiles.$active.provider")
@@ -805,56 +319,32 @@ show_status() {
     echo "    haiku:  $haiku"
     echo "    sonnet: $sonnet"
     echo "    opus:   $opus"
-    echo ""
-
-    local skip
-    skip=$(config_get '.options.skip_permissions')
-    if [[ "$skip" == "true" ]]; then
-        echo -e "  启动选项: ${GREEN}跳过权限确认${NC}"
-    fi
-
-    local version
-    version=$(get_local_version)
-    echo "  版本:     v$version"
 }
 
-# ============================================
-# Launch Functions
-# ============================================
-
+# Launch
 select_and_launch() {
     local profiles
     profiles=($(config_get '.profiles | keys[]'))
 
-    if [[ ${#profiles[@]} -eq 0 ]]; then
-        echo -e "${YELLOW}暂无配置，请先运行 'mm setup' 创建配置${NC}"
-        return
-    fi
+    [[ ${#profiles[@]} -eq 0 ]] && { echo -e "${YELLOW}暂无配置，请先运行 'mm setup'${NC}"; return; }
 
     local active
     active=$(config_get '.active_profile')
 
+    local profile
     if [[ ${#profiles[@]} -eq 1 ]]; then
-        launch_profile "${profiles[0]}"
-        return
+        profile="${profiles[0]}"
+    else
+        profile=$(fzf_select "选择配置:" "${profiles[@]}")
     fi
 
-    echo ""
-    interactive_select "选择配置:" "${profiles[@]}"
-    local idx=$?
+    [[ -z "$profile" ]] && { echo -e "${YELLOW}已取消${NC}"; return; }
 
-    if [[ $idx -eq 255 ]]; then
-        echo -e "${YELLOW}已取消${NC}"
-        return
-    fi
-
-    local profile="${profiles[$idx]}"
     launch_profile "$profile" "$@"
 }
 
 launch_profile() {
-    local profile="$1"
-    shift 2>/dev/null || true
+    local profile="$1"; shift 2>/dev/null || true
 
     local provider haiku sonnet opus base_url api_key provider_name
     provider=$(config_get ".profiles.$profile.provider")
@@ -865,12 +355,7 @@ launch_profile() {
     provider_name=$(config_get ".providers.$provider.name")
 
     api_key=$(get_api_key "$provider")
-    if [[ -z "$api_key" ]]; then
-        echo -e "${RED}错误: $provider_name API Key 未配置${NC}"
-        echo ""
-        echo "运行 ${CYAN}mm setup${NC} 进行配置"
-        exit 1
-    fi
+    [[ -z "$api_key" ]] && { echo -e "${RED}错误: $provider_name API Key 未配置${NC}"; echo "运行 ${CYAN}mm setup${NC}"; exit 1; }
 
     config_set ".active_profile = \"$profile\""
 
@@ -884,113 +369,44 @@ launch_profile() {
     export ANTHROPIC_DEFAULT_OPUS_MODEL="$opus"
 
     local claude_args=()
-    local skip
-    skip=$(config_get '.options.skip_permissions')
-    if [[ "$skip" == "true" ]]; then
-        claude_args+=("--dangerously-skip-permissions")
-    fi
+    [[ $(config_get '.options.skip_permissions') == "true" ]] && claude_args+=("--dangerously-skip-permissions")
     claude_args+=("$@")
 
     exec claude "${claude_args[@]}"
 }
 
-# ============================================
 # Main
-# ============================================
-
-show_help() {
-    local version
-    version=$(get_local_version)
-    cat << HELP
-MM - Claude Code 简易启动器 v$version
-
-用法:
-  mm              交互式选择配置并启动
-  mm <profile>    直接使用指定配置启动
-  mm setup        配置向导
-  mm update       检查并更新
-  mm uninstall    卸载 MUKits
-  mm version      显示版本信息
-  mm help         显示帮助
-
-配置文件: ~/.mukits/config.json
-项目地址: https://github.com/CasperMoo/MUKits
-HELP
-}
-
 main() {
-    trap 'disable_raw_mode' EXIT
     check_jq
     init_config
 
-    local command="${1:-}"
+    local cmd="${1:-}"
 
-    case "$command" in
+    case "$cmd" in
         "")
             if ! has_profiles || ! has_any_api_key; then
                 echo -e "${YELLOW}首次使用，请先配置${NC}"
-                setup_main_menu
+                setup_wizard
                 return
             fi
-
-            local new_version
-            new_version=$(check_for_update)
-            if [[ -n "$new_version" ]]; then
-                show_update_prompt "$new_version"
-            else
-                local version
-                version=$(get_local_version)
-                echo -e "${GREEN}✓ 已是最新版本 v$version${NC}"
-            fi
-
             select_and_launch "$@"
             ;;
-
-        setup)
-            setup_main_menu
-            ;;
-
-        update)
-            echo "检查更新..."
-            local new_version
-            new_version=$(check_for_update "true")
-            if [[ -n "$new_version" ]]; then
-                show_update_prompt "$new_version"
-            else
-                local version
-                version=$(get_local_version)
-                echo -e "${GREEN}✓ 已是最新版本 v$version${NC}"
-            fi
-            ;;
-
-        uninstall)
-            local uninstall_url="https://raw.githubusercontent.com/CasperMoo/MUKits/main/uninstall.sh"
-            echo "正在启动卸载程序..."
-            if command -v curl &>/dev/null; then
-                curl -sL "$uninstall_url" | bash
-            else
-                echo -e "${RED}需要 curl 来运行卸载程序${NC}"
-                echo "请手动访问: $uninstall_url"
-            fi
-            ;;
-
-        version|--version|-v)
-            local version
-            version=$(get_local_version)
-            echo "MM v$version"
-            ;;
-
+        setup) setup_wizard ;;
         help|-h|--help)
-            show_help
+            echo "MM - Claude Code 简易启动器"
+            echo ""
+            echo "用法: mm [命令]"
+            echo ""
+            echo "命令:"
+            echo "  mm          启动 Claude Code"
+            echo "  mm setup    配置向导"
+            echo "  mm help     显示帮助"
             ;;
-
         *)
-            if config_get ".profiles.$command" >/dev/null 2>&1; then
+            if config_get ".profiles.$cmd" >/dev/null 2>&1; then
                 launch_profile "$@"
             else
-                echo -e "${RED}错误: 未知命令或配置 '$command'${NC}"
-                echo ""
-                echo "运行 ${CYAN}mm help${NC} 查看帮助"
+                echo -e "${RED}错误: 未知命令 '$cmd'${NC}"
                 exit 1
             fi
             ;;

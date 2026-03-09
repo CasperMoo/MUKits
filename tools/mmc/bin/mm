@@ -800,6 +800,7 @@ MM - Claude Code 简易启动器 v$version
   mm <profile>    直接使用指定配置启动
   mm setup        配置向导
   mm update       检查并更新
+  mm uninstall    卸载 MUKits
   mm version      显示版本信息
   mm help         显示帮助
 
@@ -851,6 +852,17 @@ main() {
                 local version
                 version=$(get_local_version)
                 echo -e "${GREEN}✓ 已是最新版本 v$version${NC}"
+            fi
+            ;;
+
+        uninstall)
+            local uninstall_url="https://raw.githubusercontent.com/CasperMoo/MUKits/main/uninstall.sh"
+            echo "正在启动卸载程序..."
+            if command -v curl &>/dev/null; then
+                curl -sL "$uninstall_url" | bash
+            else
+                echo -e "${RED}需要 curl 来运行卸载程序${NC}"
+                echo "请手动访问: $uninstall_url"
             fi
             ;;
 

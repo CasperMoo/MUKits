@@ -219,7 +219,11 @@ setup_new_profile() {
 
         case "$key_action" in
             打开*)
-                command -v open &>/dev/null && open "$apply_url" || command -v xdg-open &>/dev/null && xdg-open "$apply_url"
+                if command -v open &>/dev/null; then
+                    open "$apply_url"
+                elif command -v xdg-open &>/dev/null; then
+                    xdg-open "$apply_url"
+                fi
                 echo -e "${BLUE}获取到 Key 后重新运行 mm setup${NC}"
                 return
                 ;;

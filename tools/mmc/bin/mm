@@ -17,20 +17,20 @@ NC='\033[0m'
 
 # Default providers
 DEFAULT_PROVIDERS='{
-  "glm": {"name": "智谱 GLM", "base_url": "https://open.bigmodel.cn/api/anthropic", "api_key_env": "GLM_API_KEY", "apply_url": "https://open.bigmodel.cn/",
-    "presets": {"fast": {"haiku": "glm-4.7", "sonnet": "glm-4.7", "opus": "glm-4.7"}, "balanced": {"haiku": "glm-4.7", "sonnet": "glm-5", "opus": "glm-5"}, "powerful": {"haiku": "glm-5", "sonnet": "glm-5", "opus": "glm-5"}}},
-  "deepseek": {"name": "DeepSeek", "base_url": "https://api.deepseek.com/anthropic", "api_key_env": "DEEPSEEK_API_KEY", "apply_url": "https://platform.deepseek.com/",
-    "presets": {"fast": {"haiku": "deepseek-chat", "sonnet": "deepseek-chat", "opus": "deepseek-chat"}, "balanced": {"haiku": "deepseek-chat", "sonnet": "deepseek-v3", "opus": "deepseek-v3"}, "powerful": {"haiku": "deepseek-v3", "sonnet": "deepseek-v3", "opus": "deepseek-v3"}}},
-  "volcengine": {"name": "火山引擎", "base_url": "https://ark.cn-beijing.volces.com/api/v3/", "api_key_env": "VOLCENGINE_API_KEY", "apply_url": "https://console.volcengine.com/ark",
-    "presets": {"fast": {"haiku": "doubao-pro-32k", "sonnet": "doubao-pro-32k", "opus": "doubao-pro-32k"}, "balanced": {"haiku": "doubao-pro-32k", "sonnet": "doubao-pro-32k", "opus": "doubao-pro-256k"}, "powerful": {"haiku": "doubao-pro-256k", "sonnet": "doubao-pro-256k", "opus": "doubao-pro-256k"}}},
-  "aliyun": {"name": "阿里云百炼", "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1", "api_key_env": "ALIYUN_API_KEY", "apply_url": "https://bailian.console.aliyun.com/",
-    "presets": {"fast": {"haiku": "qwen-turbo", "sonnet": "qwen-turbo", "opus": "qwen-plus"}, "balanced": {"haiku": "qwen-plus", "sonnet": "qwen-plus", "opus": "qwen-max"}, "powerful": {"haiku": "qwen-max", "sonnet": "qwen-max", "opus": "qwen-max"}}},
-  "siliconflow": {"name": "硅基流动", "base_url": "https://api.siliconflow.cn/v1", "api_key_env": "SILICONFLOW_API_KEY", "apply_url": "https://cloud.siliconflow.cn/",
-    "presets": {"fast": {"haiku": "Qwen/Qwen2.5-7B-Instruct", "sonnet": "Qwen/Qwen2.5-7B-Instruct", "opus": "Qwen/Qwen2.5-32B-Instruct"}, "balanced": {"haiku": "Qwen/Qwen2.5-32B-Instruct", "sonnet": "Qwen/Qwen2.5-72B-Instruct", "opus": "Qwen/Qwen2.5-72B-Instruct"}, "powerful": {"haiku": "deepseek-ai/DeepSeek-V3", "sonnet": "deepseek-ai/DeepSeek-V3", "opus": "deepseek-ai/DeepSeek-V3"}}},
-  "anthropic": {"name": "Anthropic", "base_url": "https://api.anthropic.com", "api_key_env": "ANTHROPIC_API_KEY", "apply_url": "https://console.anthropic.com/",
-    "presets": {"fast": {"haiku": "claude-haiku-4-20250514", "sonnet": "claude-haiku-4-20250514", "opus": "claude-sonnet-4-20250514"}, "balanced": {"haiku": "claude-haiku-4-20250514", "sonnet": "claude-sonnet-4-20250514", "opus": "claude-sonnet-4-20250514"}, "powerful": {"haiku": "claude-sonnet-4-20250514", "sonnet": "claude-opus-4-20250514", "opus": "claude-opus-4-20250514"}}},
-  "openrouter": {"name": "OpenRouter", "base_url": "https://openrouter.ai/api/v1", "api_key_env": "OPENROUTER_API_KEY", "apply_url": "https://openrouter.ai/",
-    "presets": {"fast": {"haiku": "anthropic/claude-haiku-4", "sonnet": "anthropic/claude-haiku-4", "opus": "anthropic/claude-sonnet-4"}, "balanced": {"haiku": "anthropic/claude-haiku-4", "sonnet": "anthropic/claude-sonnet-4", "opus": "anthropic/claude-sonnet-4"}, "powerful": {"haiku": "anthropic/claude-sonnet-4", "sonnet": "anthropic/claude-opus-4", "opus": "anthropic/claude-opus-4"}}}
+  "glm":        {"name": "智谱 GLM",    "base_url": "https://open.bigmodel.cn/api/anthropic",          "api_key_env": "GLM_API_KEY",        "apply_url": "https://open.bigmodel.cn/",
+    "models": {"haiku": "glm-4.7", "sonnet": "glm-5", "opus": "glm-5"}},
+  "deepseek":   {"name": "DeepSeek",    "base_url": "https://api.deepseek.com/anthropic",               "api_key_env": "DEEPSEEK_API_KEY",   "apply_url": "https://platform.deepseek.com/",
+    "models": {"haiku": "deepseek-chat", "sonnet": "deepseek-v3", "opus": "deepseek-v3"}},
+  "volcengine": {"name": "火山引擎",    "base_url": "https://ark.cn-beijing.volces.com/api/v3/",         "api_key_env": "VOLCENGINE_API_KEY", "apply_url": "https://console.volcengine.com/ark",
+    "models": {"haiku": "doubao-pro-32k", "sonnet": "doubao-pro-32k", "opus": "doubao-pro-256k"}},
+  "aliyun":     {"name": "阿里云百炼",  "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1","api_key_env": "ALIYUN_API_KEY",     "apply_url": "https://bailian.console.aliyun.com/",
+    "models": {"haiku": "qwen-turbo", "sonnet": "qwen-plus", "opus": "qwen-max"}},
+  "siliconflow":{"name": "硅基流动",    "base_url": "https://api.siliconflow.cn/v1",                    "api_key_env": "SILICONFLOW_API_KEY","apply_url": "https://cloud.siliconflow.cn/",
+    "models": {"haiku": "Qwen/Qwen2.5-7B-Instruct", "sonnet": "Qwen/Qwen2.5-72B-Instruct", "opus": "deepseek-ai/DeepSeek-V3"}},
+  "anthropic":  {"name": "Anthropic",   "base_url": "https://api.anthropic.com",                        "api_key_env": "ANTHROPIC_API_KEY",  "apply_url": "https://console.anthropic.com/",
+    "models": {"haiku": "claude-haiku-4-20250514", "sonnet": "claude-sonnet-4-20250514", "opus": "claude-opus-4-20250514"}},
+  "openrouter": {"name": "OpenRouter",  "base_url": "https://openrouter.ai/api/v1",                     "api_key_env": "OPENROUTER_API_KEY", "apply_url": "https://openrouter.ai/",
+    "models": {"haiku": "anthropic/claude-haiku-4", "sonnet": "anthropic/claude-sonnet-4", "opus": "anthropic/claude-opus-4"}}
 }'
 
 DEFAULT_CONFIG="{\"providers\": $DEFAULT_PROVIDERS, \"profiles\": {}, \"active_profile\": \"\", \"options\": {\"skip_permissions\": false}}"
@@ -122,11 +122,12 @@ setup_wizard() {
         echo ""
         local action
         action=$(fzf_select "请选择操作:" \
-            "新建配置 - 选择服务商、设置 Key、选择模板" \
+            "新建配置 - 选择服务商并设置 Key" \
             "管理 API Key - 查看/设置/申请 Key" \
             "切换配置 - 在已有配置间切换" \
             "启动选项 - 跳过权限确认等设置" \
             "查看状态 - 显示当前配置" \
+            "编辑配置文件 - 手动编辑高级选项" \
             "退出")
 
         [[ -z "$action" ]] && { echo "再见！"; exit 0; }
@@ -137,6 +138,15 @@ setup_wizard() {
             切换配置*) setup_switch_profile ;;
             启动选项*) setup_options ;;
             查看状态*) show_status ;;
+            编辑配置文件*)
+                if command -v "${EDITOR:-}" &>/dev/null 2>&1; then
+                    "${EDITOR}" "$MM_CONFIG_FILE"
+                elif command -v open &>/dev/null; then
+                    open "$MM_CONFIG_FILE"
+                else
+                    echo -e "${YELLOW}请手动编辑: $MM_CONFIG_FILE${NC}"
+                fi
+                ;;
             退出) echo "再见！"; exit 0 ;;
         esac
 
@@ -213,57 +223,13 @@ setup_new_profile() {
         esac
     fi
 
-    echo ""
-    echo -e "${BLUE}步骤 3: 选择模型配置${NC}"
-
-    local f_h f_s f_o b_h b_s b_o p_h p_s p_o
-    f_h=$(config_get ".providers.$provider_id.presets.fast.haiku")
-    f_s=$(config_get ".providers.$provider_id.presets.fast.sonnet")
-    f_o=$(config_get ".providers.$provider_id.presets.fast.opus")
-    b_h=$(config_get ".providers.$provider_id.presets.balanced.haiku")
-    b_s=$(config_get ".providers.$provider_id.presets.balanced.sonnet")
-    b_o=$(config_get ".providers.$provider_id.presets.balanced.opus")
-    p_h=$(config_get ".providers.$provider_id.presets.powerful.haiku")
-    p_s=$(config_get ".providers.$provider_id.presets.powerful.sonnet")
-    p_o=$(config_get ".providers.$provider_id.presets.powerful.opus")
-
-    local preset
-    preset=$(fzf_select "选择模型配置:" \
-        "快速   $f_h / $f_s / $f_o" \
-        "均衡   $b_h / $b_s / $b_o  (推荐)" \
-        "强大   $p_h / $p_s / $p_o" \
-        "自定义 打开配置文件编辑")
-
-    [[ -z "$preset" ]] && { echo -e "${YELLOW}已取消${NC}"; return; }
-
-    local preset_name
-    case "$preset" in
-        快速*)   preset_name="fast" ;;
-        均衡*)   preset_name="balanced" ;;
-        强大*)   preset_name="powerful" ;;
-        自定义*)
-            echo -e "${BLUE}打开配置文件，编辑完保存后重新运行 mm setup${NC}"
-            echo "  $MM_CONFIG_FILE"
-            if command -v "$EDITOR" &>/dev/null 2>&1; then
-                "$EDITOR" "$MM_CONFIG_FILE"
-            elif command -v open &>/dev/null; then
-                open "$MM_CONFIG_FILE"
-            else
-                echo -e "${YELLOW}请手动编辑: $MM_CONFIG_FILE${NC}"
-            fi
-            return
-            ;;
-        *) return ;;
-    esac
-
-    local profile_name="${provider_id}-${preset_name}"
     local haiku sonnet opus
-    haiku=$(config_get ".providers.$provider_id.presets.$preset_name.haiku")
-    sonnet=$(config_get ".providers.$provider_id.presets.$preset_name.sonnet")
-    opus=$(config_get ".providers.$provider_id.presets.$preset_name.opus")
+    haiku=$(config_get ".providers.$provider_id.models.haiku")
+    sonnet=$(config_get ".providers.$provider_id.models.sonnet")
+    opus=$(config_get ".providers.$provider_id.models.opus")
 
-    config_set ".profiles[\"$profile_name\"] = {\"provider\": \"$provider_id\", \"preset\": \"$preset_name\", \"haiku\": \"$haiku\", \"sonnet\": \"$sonnet\", \"opus\": \"$opus\"}"
-    config_set ".active_profile = \"$profile_name\""
+    config_set ".profiles[\"$provider_id\"] = {\"provider\": \"$provider_id\", \"haiku\": \"$haiku\", \"sonnet\": \"$sonnet\", \"opus\": \"$opus\"}"
+    config_set ".active_profile = \"$provider_id\""
 
     echo ""
     echo -e "${GREEN}✓ 配置完成！${NC}"
@@ -367,9 +333,8 @@ show_status() {
 
     [[ -z "$active" ]] && { echo -e "  ${YELLOW}暂无活跃配置${NC}"; return; }
 
-    local provider preset haiku sonnet opus provider_name
+    local provider haiku sonnet opus provider_name
     provider=$(config_get ".profiles[\"$active\"].provider")
-    preset=$(config_get ".profiles[\"$active\"].preset")
     haiku=$(config_get ".profiles[\"$active\"].haiku")
     sonnet=$(config_get ".profiles[\"$active\"].sonnet")
     opus=$(config_get ".profiles[\"$active\"].opus")
@@ -377,9 +342,8 @@ show_status() {
 
     echo "  活跃配置: $active"
     echo "  服务商:   $provider_name"
-    echo "  性能模式: $preset"
     echo ""
-    echo "  模型配置:"
+    echo "  模型:"
     echo "    haiku:  $haiku"
     echo "    sonnet: $sonnet"
     echo "    opus:   $opus"

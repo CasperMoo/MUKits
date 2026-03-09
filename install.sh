@@ -146,17 +146,43 @@ save_version_info() {
     fi
 }
 
+# Fresh clone, preserving config.json
+fresh_clone() {
+    # Backup user config
+    local config_backup=""
+    if [[ -f "$INSTALL_DIR/config.json" ]]; then
+        config_backup=$(cat "$INSTALL_DIR/config.json")
+        log_info "Backing up config.json..."
+    fi
+
+    rm -rf "$INSTALL_DIR"
+    log_info "Cloning repository to $INSTALL_DIR..."
+    git clone "$REPO_URL" "$INSTALL_DIR"
+
+    # Restore config
+    if [[ -n "$config_backup" ]]; then
+        echo "$config_backup" > "$INSTALL_DIR/config.json"
+        log_info "Config restored."
+    fi
+}
+
 # Clone or update repository
 clone_or_update() {
-    if [[ -d "$INSTALL_DIR" ]]; then
+    if [[ -d "$INSTALL_DIR/.git" ]]; then
         log_info "Updating existing installation..."
         cd "$INSTALL_DIR"
         git pull --ff-only || {
-            log_warn "Update failed, continuing with existing version"
+            log_warn "Update failed, reinstalling from scratch..."
+            fresh_clone
         }
     else
-        log_info "Cloning repository to $INSTALL_DIR..."
-        git clone "$REPO_URL" "$INSTALL_DIR"
+        if [[ -d "$INSTALL_DIR" ]]; then
+            log_info "Directory exists but not a git repo, reinstalling..."
+            fresh_clone
+        else
+            log_info "Cloning repository to $INSTALL_DIR..."
+            git clone "$REPO_URL" "$INSTALL_DIR"
+        fi
     fi
 }
 

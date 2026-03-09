@@ -55,6 +55,11 @@ init_config() {
 
 get_api_key() {
     local provider="$1"
+    # First check config.json
+    local stored_key
+    stored_key=$(config_get ".providers.$provider.api_key")
+    [[ -n "$stored_key" ]] && echo "$stored_key" && return 0
+    # Fall back to env var
     local env_var
     env_var=$(config_get ".providers.$provider.api_key_env")
     [[ -n "${!env_var:-}" ]] && echo "${!env_var}" && return 0
@@ -195,13 +200,10 @@ setup_new_profile() {
                 return
                 ;;
             我已有*)
-                local env_var
-                env_var=$(config_get ".providers.$provider_id.api_key_env")
                 read -p "请输入 API Key: " -r api_key
                 if [[ -n "$api_key" ]]; then
-                    export "$env_var"="$api_key"
-                    read -p "保存到 ~/.zshrc？[Y/n]: " -r save
-                    [[ ! "$save" =~ ^[Nn]$ ]] && echo "export $env_var='$api_key'" >> ~/.zshrc && echo -e "${GREEN}✓ 已保存${NC}"
+                    config_set ".providers.$provider_id.api_key = \"$api_key\""
+                    echo -e "${GREEN}✓ 已保存到 $MM_CONFIG_FILE${NC}"
                 fi
                 ;;
             跳过*)
@@ -236,7 +238,7 @@ setup_new_profile() {
     sonnet=$(config_get ".providers.$provider_id.presets.$preset_name.sonnet")
     opus=$(config_get ".providers.$provider_id.presets.$preset_name.opus")
 
-    config_set ".profiles.$profile_name = {\"provider\": \"$provider_id\", \"preset\": \"$preset_name\", \"haiku\": \"$haiku\", \"sonnet\": \"$sonnet\", \"opus\": \"$opus\"}"
+    config_set ".profiles[\"$profile_name\"] = {\"provider\": \"$provider_id\", \"preset\": \"$preset_name\", \"haiku\": \"$haiku\", \"sonnet\": \"$sonnet\", \"opus\": \"$opus\"}"
     config_set ".active_profile = \"$profile_name\""
 
     echo ""
@@ -304,11 +306,11 @@ show_status() {
     [[ -z "$active" ]] && { echo -e "  ${YELLOW}暂无活跃配置${NC}"; return; }
 
     local provider preset haiku sonnet opus provider_name
-    provider=$(config_get ".profiles.$active.provider")
-    preset=$(config_get ".profiles.$active.preset")
-    haiku=$(config_get ".profiles.$active.haiku")
-    sonnet=$(config_get ".profiles.$active.sonnet")
-    opus=$(config_get ".profiles.$active.opus")
+    provider=$(config_get ".profiles[\"$active\"].provider")
+    preset=$(config_get ".profiles[\"$active\"].preset")
+    haiku=$(config_get ".profiles[\"$active\"].haiku")
+    sonnet=$(config_get ".profiles[\"$active\"].sonnet")
+    opus=$(config_get ".profiles[\"$active\"].opus")
     provider_name=$(config_get ".providers.$provider.name")
 
     echo "  活跃配置: $active"
@@ -347,10 +349,10 @@ launch_profile() {
     local profile="$1"; shift 2>/dev/null || true
 
     local provider haiku sonnet opus base_url api_key provider_name
-    provider=$(config_get ".profiles.$profile.provider")
-    haiku=$(config_get ".profiles.$profile.haiku")
-    sonnet=$(config_get ".profiles.$profile.sonnet")
-    opus=$(config_get ".profiles.$profile.opus")
+    provider=$(config_get ".profiles[\"$profile\"].provider")
+    haiku=$(config_get ".profiles[\"$profile\"].haiku")
+    sonnet=$(config_get ".profiles[\"$profile\"].sonnet")
+    opus=$(config_get ".profiles[\"$profile\"].opus")
     base_url=$(config_get ".providers.$provider.base_url")
     provider_name=$(config_get ".providers.$provider.name")
 
@@ -403,7 +405,7 @@ main() {
             echo "  mm help     显示帮助"
             ;;
         *)
-            if config_get ".profiles.$cmd" >/dev/null 2>&1; then
+            if config_get ".profiles[\"$cmd\"]" >/dev/null 2>&1; then
                 launch_profile "$@"
             else
                 echo -e "${RED}错误: 未知命令 '$cmd'${NC}"

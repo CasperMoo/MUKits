@@ -1,7 +1,8 @@
 {
-  "version": "1.1.4",
+  "version": "1.1.5",
   "release_date": "2026-03-09",
   "changelog": [
-    "修复 fzf --color 选项语法错误导致直接退出的问题"
+    "修复 profile 名称含连字符导致 jq 解析错误的问题",
+    "API Key 改为存储在 ~/.mukits/config.json，不再写入 ~/.zshrc"
   ]
 }

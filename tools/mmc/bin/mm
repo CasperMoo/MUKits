@@ -224,157 +224,115 @@ read_key() {
     esac
 }
 
-# Interactive select menu
+# Interactive select menu (use fzf if available, fallback to simple select)
 # Usage: interactive_select <prompt> <option1> <option2> ...
-# Returns selected index (0-based) or -1 if cancelled
+# Returns selected index (0-based) or 255 if cancelled
 interactive_select() {
     local prompt="$1"
     shift
     local options=("$@")
-    local selected=0
     local num_options=${#options[@]}
-    local key
 
-    # Hide cursor
-    tput civis 2>/dev/null || true
+    # Use fzf if available
+    if command -v fzf &>/dev/null; then
+        local selection
+        selection=$(printf '%s\n' "${options[@]}" | fzf \
+            --height="$((num_options + 2))" \
+            --prompt="$prompt > " \
+            --cycle \
+            --no-info \
+            --ansi \
+            --color='pointer:2,marker:2:selected:4' \
+            --bind 'j:down,k:up' \
+            --expect=esc \
+            2>/dev/null)
 
-    # Print initial menu
-    echo -e "${CYAN}$prompt${NC}"
-    echo ""
+        local key
+        key=$(echo "$selection" | head -1)
+
+        # ESC pressed
+        if [[ "$key" == "esc" ]]; then
+            return 255
+        fi
+
+        selection=$(echo "$selection" | tail -1)
+
+        # Find index
+        for ((i=0; i<num_options; i++)); do
+            if [[ "${options[$i]}" == "$selection" ]]; then
+                return "$i"
+            fi
+        done
+        return 255
+    fi
+
+    # Fallback: simple number selection
+    if [[ -n "$prompt" ]]; then
+        echo -e "${CYAN}$prompt${NC}"
+        echo ""
+    fi
 
     local i
     for ((i=0; i<num_options; i++)); do
-        if [[ $i -eq $selected ]]; then
-            echo -e "  ${GREEN}❯ ${BOLD}${options[$i]}${NC}"
-        else
-            echo -e "    ${options[$i]}"
-        fi
+        echo -e "  $((i+1))) ${options[$i]}"
     done
-
-    # Move cursor up to start of menu
-    tput cuu $((num_options + 1)) 2>/dev/null || true
+    echo ""
 
     while true; do
-        key=$(read_key)
+        read -p "请选择 [1-$num_options]: " -r choice
 
-        case "$key" in
-            UP|k)
-                if [[ $selected -gt 0 ]]; then
-                    ((selected--))
-                fi
-                ;;
-            DOWN|j)
-                if [[ $selected -lt $((num_options - 1)) ]]; then
-                    ((selected++))
-                fi
-                ;;
-            ENTER)
-                # Show cursor and move to end
-                tput cnorm 2>/dev/null || true
-                tput cud $((num_options)) 2>/dev/null || true
-                echo ""
-                return $selected
-                ;;
-            ESC|q)
-                tput cnorm 2>/dev/null || true
-                tput cud $((num_options)) 2>/dev/null || true
-                echo ""
-                return 255  # Cancelled
-                ;;
-            *)
-                # Number key selection
-                if [[ "$key" =~ ^[1-9]$ ]] && [[ $key -le $num_options ]]; then
-                    selected=$((key - 1))
-                    tput cnorm 2>/dev/null || true
-                    tput cud $((num_options)) 2>/dev/null || true
-                    echo ""
-                    return $selected
-                fi
+        if [[ "$choice" =~ ^[1-9]$ ]] && [[ "$choice" -le $num_options ]]; then
+            return $((choice - 1))
+        fi
+
+        case "$choice" in
+            q|Q|x|X)
+                return 255
                 ;;
         esac
-
-        # Redraw menu
-        tput el 2>/dev/null || true
-        for ((i=0; i<num_options; i++)); do
-            tput cud1 2>/dev/null || echo ""
-            tput el 2>/dev/null || true
-            if [[ $i -eq $selected ]]; then
-                echo -e "  ${GREEN}❯ ${BOLD}${options[$i]}${NC}"
-            else
-                echo -e "    ${options[$i]}"
-            fi
-        done
-        tput cuu $((num_options)) 2>/dev/null || true
     done
 }
 
-# Simple yes/no prompt with arrow keys
+# Simple yes/no prompt
 # Usage: confirm "Prompt message" [default: y/n]
 confirm() {
     local prompt="$1"
     local default="${2:-n}"
-    local selected
-    [[ "$default" == "y" ]] && selected=0 || selected=1
 
-    local options=("是" "否")
+    if command -v fzf &>/dev/null; then
+        local options=("是" "否")
+        local selection
+        selection=$(printf '%s\n' "${options[@]}" | fzf \
+            --height=4 \
+            --prompt="$prompt " \
+            --cycle \
+            --no-info \
+            --ansi \
+            --color='pointer:2,marker:2:selected:4' \
+            --bind 'j:down,k:up' \
+            --expect=esc \
+            2>/dev/null)
 
-    tput civis 2>/dev/null || true
-    echo -e "${CYAN}$prompt${NC}"
-    echo ""
+        local key
+        key=$(echo "$selection" | head -1)
+        [[ "$key" == "esc" ]] && return 1
 
-    local i
-    for ((i=0; i<2; i++)); do
-        if [[ $i -eq $selected ]]; then
-            echo -e "  ${GREEN}❯ ${options[$i]}${NC}"
-        else
-            echo -e "    ${options[$i]}"
-        fi
-    done
-    tput cuu 2 2>/dev/null || true
+        selection=$(echo "$selection" | tail -1)
+        [[ "$selection" == "是" ]] && return 0 || return 1
+    fi
+
+    # Fallback: simple y/n
+    local default_hint
+    [[ "$default" == "y" ]] && default_hint="[Y/n]" || default_hint="[y/N]"
 
     while true; do
-        local key
-        key=$(read_key)
+        read -p "$prompt $default_hint: " -r answer
+        answer="${answer:-$default}"
 
-        case "$key" in
-            UP|DOWN|LEFT|RIGHT)
-                selected=$((1 - selected))
-                ;;
-            ENTER)
-                tput cnorm 2>/dev/null || true
-                tput cud 2 2>/dev/null || true
-                echo ""
-                [[ $selected -eq 0 ]] && return 0 || return 1
-                ;;
-            y|Y)
-                tput cnorm 2>/dev/null || true
-                tput cud 2 2>/dev/null || true
-                echo ""
-                return 0
-                ;;
-            n|N|ESC|q)
-                tput cnorm 2>/dev/null || true
-                tput cud 2 2>/dev/null || true
-                echo ""
-                return 1
-                ;;
+        case "$answer" in
+            y|Y|yes|YES) return 0 ;;
+            n|N|no|NO) return 1 ;;
         esac
-
-        # Redraw
-        tput cud1 2>/dev/null || echo ""
-        tput el 2>/dev/null || true
-        tput cuu 1 2>/dev/null || true
-
-        for ((i=0; i<2; i++)); do
-            tput cud1 2>/dev/null || echo ""
-            tput el 2>/dev/null || true
-            if [[ $i -eq $selected ]]; then
-                echo -e "  ${GREEN}❯ ${options[$i]}${NC}"
-            else
-                echo -e "    ${options[$i]}"
-            fi
-        done
-        tput cuu 2 2>/dev/null || true
     done
 }
 

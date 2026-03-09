@@ -190,8 +190,22 @@ setup_new_profile() {
     echo ""
     echo -e "${BLUE}步骤 2: 设置 API Key${NC}"
 
-    if get_api_key "$provider_id" >/dev/null 2>&1; then
-        echo -e "${GREEN}✓ $provider_name API Key 已配置${NC}"
+    local existing_key
+    existing_key=$(get_api_key "$provider_id" 2>/dev/null || true)
+    if [[ -n "$existing_key" ]]; then
+        local masked="${existing_key:0:4}****${existing_key: -4}"
+        local key_action
+        key_action=$(fzf_select "API Key 已配置 ($masked):" "使用现有 Key" "修改 Key")
+        [[ -z "$key_action" ]] && { echo -e "${YELLOW}已取消${NC}"; return; }
+        if [[ "$key_action" == 修改* ]]; then
+            read -p "请输入新 API Key: " -r api_key
+            if [[ -n "$api_key" ]]; then
+                config_set ".providers.$provider_id.api_key = \"$api_key\""
+                echo -e "${GREEN}✓ 已更新到 $MM_CONFIG_FILE${NC}"
+            else
+                echo -e "${YELLOW}未输入 Key，保留现有配置${NC}"
+            fi
+        fi
     else
         local apply_url
         apply_url=$(config_get ".providers.$provider_id.apply_url")

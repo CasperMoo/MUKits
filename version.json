@@ -1,11 +1,14 @@
 {
-  "version": "1.2.1",
+  "version": "1.2.2",
   "release_date": "2026-03-09",
   "changelog": [
     "简化 provider 配置：去掉三档 presets，每个 provider 只保留一套默认 models",
     "profile 名直接用 provider_id，wizard 完成后自动设为 active_profile",
     "wizard 主菜单新增「编辑配置文件」入口",
     "修复：输入空 Key 时不再创建 profile",
-    "新增：自动化测试套件 (29 个测试)"
+    "修复：macOS 打开 URL 不再误调用 xdg-open",
+    "修复：空 claude_args 数组导致 unbound variable 报错",
+    "修复：Key 已存在时 setup 提供确认/修改选项",
+    "新增：自动化测试套件 (31 个测试)"
   ]
 }

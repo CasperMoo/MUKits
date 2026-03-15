@@ -24,6 +24,7 @@ log_error() {
 }
 
 # Add PATH to shell config file if not already present
+# Returns: 0 on success, 1 on failure
 add_to_shell_config() {
     local config_file="$1"
     local path_entry='export PATH="$HOME/.local/bin:$PATH"'
@@ -32,20 +33,17 @@ add_to_shell_config() {
 
     # Check if already present in file
     if [[ -f "$config_file" ]] && grep -qF '.local/bin' "$config_file" 2>/dev/null; then
+        log_info "~/.local/bin already in $config_file"
         return 0
     fi
 
     # Check if we can write
     if [[ -f "$config_file" ]]; then
         if [[ ! -w "$config_file" ]]; then
-            log_warn "Cannot write to $config_file (permission denied)"
-            echo "  Please manually add: $path_entry"
             return 1
         fi
     else
         if [[ ! -w "$config_dir" ]]; then
-            log_warn "Cannot create $config_file (permission denied)"
-            echo "  Please manually add: $path_entry"
             return 1
         fi
     fi
@@ -67,17 +65,30 @@ ensure_local_bin() {
     if [[ ":$PATH:" != *":$local_bin:"* ]]; then
         log_warn "~/.local/bin not in PATH, adding to shell configs..."
 
-        # Add to bash config (use .bash_profile on macOS, .bashrc on Linux)
-        if [[ "$(uname -s)" == "Darwin" ]]; then
-            add_to_shell_config "$HOME/.bash_profile"
-        else
-            add_to_shell_config "$HOME/.bashrc"
+        local bash_config="$HOME/.bashrc"
+        [[ "$(uname -s)" == "Darwin" ]] && bash_config="$HOME/.bash_profile"
+        local zsh_config="$HOME/.zshrc"
+        local failed=0
+
+        # Add to bash config
+        if ! add_to_shell_config "$bash_config"; then
+            failed=1
         fi
 
         # Add to zsh config
-        add_to_shell_config "$HOME/.zshrc"
+        if ! add_to_shell_config "$zsh_config"; then
+            failed=1
+        fi
 
-        log_info "Please restart your terminal or run: source ~/.zshrc (or ~/.bash_profile)"
+        if [[ $failed -eq 1 ]]; then
+            echo ""
+            log_warn "Failed to write some config files. Please run this command:"
+            echo ""
+            echo -e "${GREEN}  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc ~/.zshrc && source ~/.zshrc${NC}"
+            echo ""
+        else
+            log_info "Please restart your terminal or run: source ~/.zshrc (or ~/.bash_profile)"
+        fi
     fi
 }
 

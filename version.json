@@ -1,7 +1,7 @@
 {
-  "version": "1.2.6",
+  "version": "1.2.7",
   "release_date": "2026-03-15",
   "changelog": [
-    "新增：mm doctor 命令，诊断安装问题并给出修复建议"
+    "修复：手动添加 PATH 的命令语法错误"
   ]
 }

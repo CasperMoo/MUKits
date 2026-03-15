@@ -1,7 +1,8 @@
 {
-  "version": "1.2.3",
+  "version": "1.2.4",
   "release_date": "2026-03-15",
   "changelog": [
-    "修复：安装时自动将 ~/.local/bin 添加到 bash 和 zsh 配置文件"
+    "修复：安装时自动将 ~/.local/bin 添加到 bash 和 zsh 配置文件",
+    "修复：处理 shell 配置文件权限不足的情况，给出手动添加提示"
   ]
 }

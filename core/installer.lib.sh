@@ -27,21 +27,35 @@ log_error() {
 add_to_shell_config() {
     local config_file="$1"
     local path_entry='export PATH="$HOME/.local/bin:$PATH"'
+    local config_dir
+    config_dir=$(dirname "$config_file")
 
+    # Check if already present in file
+    if [[ -f "$config_file" ]] && grep -qF '.local/bin' "$config_file" 2>/dev/null; then
+        return 0
+    fi
+
+    # Check if we can write
     if [[ -f "$config_file" ]]; then
-        # Check if already present
-        if ! grep -qF '.local/bin' "$config_file" 2>/dev/null; then
-            echo "" >> "$config_file"
-            echo "# Added by MUKits installer" >> "$config_file"
-            echo "$path_entry" >> "$config_file"
-            log_info "Added ~/.local/bin to $config_file"
+        if [[ ! -w "$config_file" ]]; then
+            log_warn "Cannot write to $config_file (permission denied)"
+            echo "  Please manually add: $path_entry"
+            return 1
         fi
     else
-        # Create file with PATH
-        echo "# Added by MUKits installer" > "$config_file"
-        echo "$path_entry" >> "$config_file"
-        log_info "Created $config_file with ~/.local/bin in PATH"
+        if [[ ! -w "$config_dir" ]]; then
+            log_warn "Cannot create $config_file (permission denied)"
+            echo "  Please manually add: $path_entry"
+            return 1
+        fi
     fi
+
+    # Write to file
+    {
+        echo ""
+        echo "# Added by MUKits installer"
+        echo "$path_entry"
+    } >> "$config_file" 2>/dev/null && log_info "Added ~/.local/bin to $config_file"
 }
 
 # Ensure ~/.local/bin exists and is in PATH

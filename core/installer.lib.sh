@@ -23,6 +23,27 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $*"
 }
 
+# Add PATH to shell config file if not already present
+add_to_shell_config() {
+    local config_file="$1"
+    local path_entry='export PATH="$HOME/.local/bin:$PATH"'
+
+    if [[ -f "$config_file" ]]; then
+        # Check if already present
+        if ! grep -qF '.local/bin' "$config_file" 2>/dev/null; then
+            echo "" >> "$config_file"
+            echo "# Added by MUKits installer" >> "$config_file"
+            echo "$path_entry" >> "$config_file"
+            log_info "Added ~/.local/bin to $config_file"
+        fi
+    else
+        # Create file with PATH
+        echo "# Added by MUKits installer" > "$config_file"
+        echo "$path_entry" >> "$config_file"
+        log_info "Created $config_file with ~/.local/bin in PATH"
+    fi
+}
+
 # Ensure ~/.local/bin exists and is in PATH
 ensure_local_bin() {
     local local_bin="$HOME/.local/bin"
@@ -30,9 +51,19 @@ ensure_local_bin() {
 
     # Check if ~/.local/bin is in PATH
     if [[ ":$PATH:" != *":$local_bin:"* ]]; then
-        log_warn "~/.local/bin not in PATH"
-        log_info "Add this to your ~/.bashrc or ~/.zshrc:"
-        echo "  export PATH=\"$local_bin:\$PATH\""
+        log_warn "~/.local/bin not in PATH, adding to shell configs..."
+
+        # Add to bash config (use .bash_profile on macOS, .bashrc on Linux)
+        if [[ "$(uname -s)" == "Darwin" ]]; then
+            add_to_shell_config "$HOME/.bash_profile"
+        else
+            add_to_shell_config "$HOME/.bashrc"
+        fi
+
+        # Add to zsh config
+        add_to_shell_config "$HOME/.zshrc"
+
+        log_info "Please restart your terminal or run: source ~/.zshrc (or ~/.bash_profile)"
     fi
 }
 

@@ -373,6 +373,148 @@ show_status() {
     echo "    opus:   $opus"
 }
 
+# Doctor - diagnose installation issues
+run_doctor() {
+    echo ""
+    echo -e "${CYAN}╔════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║           MM 诊断工具                   ║${NC}"
+    echo -e "${CYAN}╚════════════════════════════════════════╝${NC}"
+    echo ""
+
+    local issues=0
+
+    # Check 1: MUKits installation
+    echo -e "${BLUE}[1/6] 检查 MUKits 安装...${NC}"
+    if [[ -d "$HOME/.mukits" ]]; then
+        local version
+        version=$(cat "$HOME/.mukits/.version" 2>/dev/null || echo "未知")
+        echo -e "  ${GREEN}✓${NC} ~/.mukits 存在 (版本: $version)"
+    else
+        echo -e "  ${RED}✗${NC} ~/.mukits 不存在"
+        ((issues++))
+    fi
+
+    # Check 2: mm symlink
+    echo -e "${BLUE}[2/6] 检查 mm 命令...${NC}"
+    local mm_link="$HOME/.local/bin/mm"
+    if [[ -L "$mm_link" ]]; then
+        local target
+        target=$(readlink "$mm_link")
+        if [[ -f "$target" ]]; then
+            echo -e "  ${GREEN}✓${NC} $mm_link -> $target"
+        else
+            echo -e "  ${RED}✗${NC} $mm_link 链接目标不存在: $target"
+            ((issues++))
+        fi
+    elif [[ -f "$mm_link" ]]; then
+        echo -e "  ${YELLOW}!${NC} $mm_link 是文件而非符号链接"
+    else
+        echo -e "  ${RED}✗${NC} $mm_link 不存在"
+        ((issues++))
+    fi
+
+    # Check 3: ~/.local/bin in PATH
+    echo -e "${BLUE}[3/6] 检查 PATH 配置...${NC}"
+    if [[ ":$PATH:" == *":$HOME/.local/bin:"* ]]; then
+        echo -e "  ${GREEN}✓${NC} ~/.local/bin 已在 PATH 中"
+    else
+        echo -e "  ${RED}✗${NC} ~/.local/bin 不在 PATH 中"
+        ((issues++))
+    fi
+
+    # Check 4: Shell config files
+    echo -e "${BLUE}[4/6] 检查 Shell 配置文件...${NC}"
+    local bash_config="$HOME/.bashrc"
+    [[ "$(uname -s)" == "Darwin" ]] && bash_config="$HOME/.bash_profile"
+    local zsh_config="$HOME/.zshrc"
+    local bash_ok=false zsh_ok=false
+
+    if [[ -f "$bash_config" ]] && grep -qF '.local/bin' "$bash_config" 2>/dev/null; then
+        echo -e "  ${GREEN}✓${NC} $bash_config 已配置"
+        bash_ok=true
+    else
+        echo -e "  ${YELLOW}!${NC} $bash_config 未配置"
+    fi
+
+    if [[ -f "$zsh_config" ]] && grep -qF '.local/bin' "$zsh_config" 2>/dev/null; then
+        echo -e "  ${GREEN}✓${NC} $zsh_config 已配置"
+        zsh_ok=true
+    else
+        echo -e "  ${YELLOW}!${NC} $zsh_config 未配置"
+    fi
+
+    # Check 5: Dependencies
+    echo -e "${BLUE}[5/6] 检查依赖...${NC}"
+    if command -v claude &>/dev/null; then
+        local claude_ver
+        claude_ver=$(claude --version 2>/dev/null | head -1 || echo "已安装")
+        echo -e "  ${GREEN}✓${NC} claude: $claude_ver"
+    else
+        echo -e "  ${RED}✗${NC} claude 未安装"
+        ((issues++))
+    fi
+
+    if command -v jq &>/dev/null; then
+        echo -e "  ${GREEN}✓${NC} jq 已安装"
+    else
+        echo -e "  ${RED}✗${NC} jq 未安装"
+        ((issues++))
+    fi
+
+    if command -v fzf &>/dev/null; then
+        echo -e "  ${GREEN}✓${NC} fzf 已安装"
+    else
+        echo -e "  ${YELLOW}!${NC} fzf 未安装 (可选，建议安装)"
+    fi
+
+    # Check 6: Config file
+    echo -e "${BLUE}[6/6] 检查配置文件...${NC}"
+    if [[ -f "$MM_CONFIG_FILE" ]]; then
+        if jq empty "$MM_CONFIG_FILE" 2>/dev/null; then
+            local profile_count
+            profile_count=$(config_get '.profiles | length')
+            echo -e "  ${GREEN}✓${NC} $MM_CONFIG_FILE (profiles: $profile_count)"
+        else
+            echo -e "  ${RED}✗${NC} $MM_CONFIG_FILE JSON 格式错误"
+            ((issues++))
+        fi
+    else
+        echo -e "  ${YELLOW}!${NC} $MM_CONFIG_FILE 不存在 (首次运行会自动创建)"
+    fi
+
+    # Summary
+    echo ""
+    if [[ $issues -eq 0 ]]; then
+        echo -e "${GREEN}✓ 所有检查通过！${NC}"
+    else
+        echo -e "${RED}✗ 发现 $issues 个问题${NC}"
+        echo ""
+        echo -e "${YELLOW}修复建议:${NC}"
+
+        # Missing mm command
+        if [[ ! -L "$mm_link" && ! -f "$mm_link" ]]; then
+            echo "  缺少 mm 命令，运行安装脚本:"
+            echo -e "    ${CYAN}curl -sL https://raw.githubusercontent.com/CasperMoo/MUKits/main/install.sh | bash${NC}"
+        fi
+
+        # PATH not set
+        if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+            echo "  PATH 未配置，执行以下命令:"
+            echo -e "    ${CYAN}echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.zshrc && source ~/.zshrc${NC}"
+        fi
+
+        # Missing dependencies
+        if ! command -v claude &>/dev/null; then
+            echo "  claude 未安装，运行安装脚本"
+        fi
+        if ! command -v jq &>/dev/null; then
+            echo "  安装 jq:"
+            echo -e "    ${CYAN}brew install jq${NC} (macOS)"
+            echo -e "    ${CYAN}sudo apt install jq${NC} (Ubuntu/Debian)"
+        fi
+    fi
+}
+
 # Launch
 select_and_launch() {
     local profiles
@@ -459,6 +601,7 @@ main() {
             select_and_launch "$@"
             ;;
         setup) setup_wizard ;;
+        doctor) run_doctor ;;
         update)
             local install_dir="$HOME/.mukits"
             if [[ -d "$install_dir/.git" ]]; then
@@ -478,6 +621,7 @@ main() {
             echo "  mm              用默认配置启动 Claude Code"
             echo "  mm -p <profile> 指定 profile 启动"
             echo "  mm setup        配置向导"
+            echo "  mm doctor       诊断安装问题"
             echo "  mm update       更新到最新版本"
             echo "  mm help         显示帮助"
             ;;

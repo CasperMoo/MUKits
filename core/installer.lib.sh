@@ -84,7 +84,8 @@ ensure_local_bin() {
             echo ""
             log_warn "Failed to write some config files. Please run this command:"
             echo ""
-            echo -e "${GREEN}  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.zshrc && source ~/.zshrc${NC}"
+            # Use variable expansion for bash_config path
+            echo -e "${GREEN}  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' | tee -a $bash_config ~/.zshrc > /dev/null && source ~/.zshrc${NC}"
             echo ""
         else
             log_info "Please restart your terminal or run: source ~/.zshrc (or ~/.bash_profile)"

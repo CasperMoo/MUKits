@@ -1,7 +1,7 @@
 {
-  "version": "1.2.7",
+  "version": "1.2.8",
   "release_date": "2026-03-15",
   "changelog": [
-    "修复：手动添加 PATH 的命令语法错误"
+    "修复：手动添加 PATH 的命令同时写入 bash 和 zsh 配置文件"
   ]
 }
